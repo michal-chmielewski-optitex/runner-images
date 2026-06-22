@@ -282,6 +282,14 @@ Function GenerateResourcesAndImage {
         $validateClientSecret = ""
     }
 
+    # Packer azure-arm: use either location (new temp RG) or build_resource_group_name (existing RG), not both.
+    if ($UseAzureCliAuth) {
+        $packerBuildLocationArgs = @("-var=build_resource_group_name=$($ResourceGroupName)")
+    }
+    else {
+        $packerBuildLocationArgs = @("-var=location=$($AzureLocation)")
+    }
+
     $packerValidateArgs = @(
         "-only=$($PackerTemplate.BuildName).*"
         "-var=client_id=fake"
@@ -290,15 +298,13 @@ Function GenerateResourcesAndImage {
         "-var=oidc_request_url=fake"
         "-var=subscription_id=$($SubscriptionId)"
         "-var=tenant_id=fake"
-        "-var=location=$($AzureLocation)"
         "-var=image_os=$($PackerTemplate.ImageOS)"
         "-var=managed_image_name=$($ManagedImageName)"
         "-var=managed_image_resource_group_name=$($ResourceGroupName)"
-        "-var=build_resource_group_name=$($ResourceGroupName)"
         "-var=install_password=$($InstallPassword)"
         "-var=allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)"
         "-var=azure_tags=$($TagsJson)"
-    )
+    ) + $packerBuildLocationArgs
     if ($UseAzureCliAuth) {
         $packerValidateArgs += "-var=use_azure_cli_auth=true"
     }
@@ -418,15 +424,13 @@ Function GenerateResourcesAndImage {
             "-var=oidc_request_url=$($env:PKR_VAR_oidc_request_url)"
             "-var=subscription_id=$($SubscriptionId)"
             "-var=tenant_id=$($TenantId)"
-            "-var=location=$($AzureLocation)"
             "-var=image_os=$($PackerTemplate.ImageOS)"
             "-var=managed_image_name=$($ManagedImageName)"
             "-var=managed_image_resource_group_name=$($ResourceGroupName)"
-            "-var=build_resource_group_name=$($ResourceGroupName)"
             "-var=install_password=$($InstallPassword)"
             "-var=allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)"
             "-var=azure_tags=$($TagsJson)"
-        )
+        ) + $packerBuildLocationArgs
         if ($UseAzureCliAuth) {
             $packerBuildArgs += "-var=use_azure_cli_auth=true"
         }
