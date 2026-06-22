@@ -22,6 +22,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+if (-not (az extension show --name mdp -o none 2>$null)) {
+    Write-Host "Installing Azure CLI extension 'mdp'..."
+    az extension add --name mdp --upgrade --yes --only-show-errors
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install Azure CLI extension 'mdp'. Run: az extension add --name mdp --upgrade --yes"
+    }
+}
+
 Write-Host "Loading pool '$PoolName'..."
 $pool = az mdp pool show --resource-group $ResourceGroupName --name $PoolName -o json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) {
