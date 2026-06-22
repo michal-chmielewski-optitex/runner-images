@@ -53,7 +53,7 @@ Po deploy (~5 min na extension):
 Lub ręcznie:
 
 ```powershell
-az login --identity --username f9e04a3f-0472-45cd-8b85-b4e4760f7675
+az login --identity --client-id f9e04a3f-0472-45cd-8b85-b4e4760f7675
 $env:INSTALLSHIELD_INSTALLER_URL = '<SAS>'
 cd C:\packer-build\runner-images\custom\installshield\helpers
 .\Build-InstallShieldImage-NedPrd.ps1 -ImageVersion '1.0.0' -UseManagedIdentity -RestrictToAgentIpAddress

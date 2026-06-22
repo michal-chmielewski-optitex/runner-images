@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 
 # 1. Azure auth via user-assigned MI (already on this VM)
 $miClientId = 'f9e04a3f-0472-45cd-8b85-b4e4760f7675'
-az login --identity --username $miClientId
+az login --identity --client-id $miClientId
 az account set --subscription 426ea593-fd6e-40a0-a314-be2b3d6a2a06
 
 # 2. Clone runner-images (adjust URL/branch)

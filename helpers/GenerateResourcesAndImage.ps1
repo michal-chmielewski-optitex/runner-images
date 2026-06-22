@@ -314,7 +314,7 @@ Function GenerateResourcesAndImage {
             Write-Verbose "Using Azure CLI auth for Packer (use_azure_cli_auth)."
             if (-not [string]::IsNullOrWhiteSpace($ManagedIdentityClientId)) {
                 Write-Host "Logging in with user-assigned managed identity..."
-                az login --identity --username $ManagedIdentityClientId --output none
+                az login --identity --client-id $ManagedIdentityClientId --output none
             }
             else {
                 Write-Verbose "Assuming Azure CLI is already authenticated (az login / system MI)."
