@@ -1,0 +1,130 @@
+# Build Windows 2022 + InstallShield SAB image and publish to existing ACG / MDP (NED PRD)
+#
+# Prerequisites (Azure DevOps):
+#   - Service connection: azureServiceConnection (Contributor on image RG + gallery RG)
+#   - Variable group: installshield-image-build
+#       SUBSCRIPTION_ID, GALLERY_RG_NAME, GALLERY_NAME (acg_ned_prd_mdp_001)
+#       IMAGE_BUILD_RG_NAME, AZURE_LOCATION
+#       MDP_RG_NAME, MDP_POOL_NAME (mdp-ned-prd-winbuild-001)
+#       INSTALLSHIELD_ARTIFACTS_STORAGE_ACCOUNT
+#   - Secret in variable group / Key Vault: INSTALLSHIELD_INSTALLER_SAS_URL (optional if using blob + MI)
+#   - Agent pool with Packer, Git, Azure CLI (self-hosted build VM or temporary scale-set)
+#
+# One-time: deploy Bicep (gallery image definition + Reader role):
+#   az deployment group create -g rg-ned-prd-mdp-001 -f custom/installshield/infra/bicep/main.bicep -p custom/installshield/infra/parameters/ned-prd.bicepparam
+
+trigger: none
+
+parameters:
+  - name: imageVersion
+    displayName: Gallery image version (semver, e.g. 1.0.0)
+    type: string
+    default: '1.0.0'
+  - name: updateManagedDevOpsPool
+    displayName: Register version on Managed DevOps Pool
+    type: boolean
+    default: true
+
+variables:
+  - group: installshield-image-build
+  - name: azureServiceConnection
+    value: sc-ned-prd-arm   # TODO: replace with your ARM service connection name
+  - name: galleryImageName
+    value: installshield-2025-win2022
+  - name: imageAlias
+    value: installshield-2025
+  - name: MDP_POOL_NAME
+    value: mdp-ned-prd-winbuild-001
+  - name: GALLERY_NAME
+    value: acg_ned_prd_mdp_001
+  - name: packerGalleryImageVersion
+    value: ${{ parameters.imageVersion }}
+
+stages:
+  - stage: BuildImage
+    displayName: Packer build + ACG publish
+    jobs:
+      - job: Packer
+        displayName: Build installshield-win2022
+        pool:
+          name: Default   # TODO: self-hosted build agent with Packer + az CLI
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            displayName: Install Packer
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: ps
+              scriptLocation: inlineScript
+              inlineScript: |
+                choco install packer -y --no-progress
+                packer plugins install github.com/hashicorp/azure 2.2.1
+
+          - task: AzureCLI@2
+            displayName: Build image and publish to ACG
+            name: packerBuild
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: ps
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                $ErrorActionPreference = 'Stop'
+                Import-Module "$(Build.SourcesDirectory)/helpers/GenerateResourcesAndImage.ps1"
+
+                $env:GALLERY_NAME = '$(GALLERY_NAME)'
+                $env:GALLERY_RG_NAME = '$(GALLERY_RG_NAME)'
+                $env:GALLERY_IMAGE_NAME = '$(galleryImageName)'
+                $env:GALLERY_IMAGE_VERSION = '$(packerGalleryImageVersion)'
+                $env:GALLERY_STORAGE_ACCOUNT_TYPE = 'Premium_LRS'
+                $env:INSTALLSHIELD_ARTIFACTS_STORAGE_ACCOUNT = '$(INSTALLSHIELD_ARTIFACTS_STORAGE_ACCOUNT)'
+
+                if ('$(INSTALLSHIELD_INSTALLER_SAS_URL)' -ne '') {
+                  $env:INSTALLSHIELD_INSTALLER_URL = '$(INSTALLSHIELD_INSTALLER_SAS_URL)'
+                }
+
+                GenerateResourcesAndImage `
+                  -SubscriptionId '$(SUBSCRIPTION_ID)' `
+                  -ResourceGroupName '$(IMAGE_BUILD_RG_NAME)' `
+                  -ImageType Windows2022InstallShield `
+                  -AzureLocation '$(AZURE_LOCATION)' `
+                  -ManagedImageName "installshield-win2022-$(packerGalleryImageVersion)" `
+                  -AzureClientId $env:servicePrincipalId `
+                  -AzureClientSecret $env:servicePrincipalKey `
+                  -AzureTenantId $env:tenantId `
+                  -OnError abort
+
+                $versionId = "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(GALLERY_RG_NAME)/providers/Microsoft.Compute/galleries/$(GALLERY_NAME)/images/$(galleryImageName)/versions/$(packerGalleryImageVersion)"
+                Write-Host "##vso[task.setvariable variable=GalleryImageVersionResourceId;isOutput=true]$versionId"
+                Write-Host "Published: $versionId"
+
+  - stage: RegisterMdp
+    displayName: Register image on MDP
+    dependsOn: BuildImage
+    condition: and(succeeded(), eq('${{ parameters.updateManagedDevOpsPool }}', true))
+    variables:
+      galleryImageVersionResourceId: $[ stageDependencies.BuildImage.Packer.outputs['packerBuild.GalleryImageVersionResourceId'] ]
+    jobs:
+      - job: UpdatePool
+        displayName: Update mdp-ned-prd-winbuild-001
+        pool:
+          vmImage: windows-latest
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            displayName: Update Managed DevOps Pool image
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: pscore
+              scriptLocation: inlineScript
+              inlineScript: |
+                $ErrorActionPreference = 'Stop'
+                & '$(Build.SourcesDirectory)/custom/installshield/helpers/Update-ManagedDevOpsPoolImage.ps1' `
+                  -ResourceGroupName '$(MDP_RG_NAME)' `
+                  -PoolName '$(MDP_POOL_NAME)' `
+                  -GalleryImageVersionResourceId '$(galleryImageVersionResourceId)' `
+                  -ImageAlias '$(imageAlias)'

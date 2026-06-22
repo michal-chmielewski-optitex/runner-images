@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 enum ImageType {
-    Windows2022         = 1
+    Windows2022                 = 1
+    Windows2022InstallShield    = 7
     Windows2025         = 2
     Windows2025_vs2026  = 3
     Ubuntu2204          = 4
@@ -21,6 +22,10 @@ Function Get-PackerTemplate {
         # Note: Double Join-Path is required to support PowerShell 5.1
         ([ImageType]::Windows2022) {
             $relativeTemplatePath = Join-Path (Join-Path "windows" "templates") "build.windows-2022.pkr.hcl"
+            $imageOS = "win22"
+        }
+        ([ImageType]::Windows2022InstallShield) {
+            $relativeTemplatePath = Join-Path (Join-Path "windows" "templates") "build.windows-2022-installshield.pkr.hcl"
             $imageOS = "win22"
         }
         ([ImageType]::Windows2025) {
@@ -122,7 +127,7 @@ Function GenerateResourcesAndImage {
         .PARAMETER ResourceGroupName
             The name of the resource group to store the resulting artifact. Resource group must already exist.
         .PARAMETER ImageType
-            The type of image to generate. Valid values are: Windows2022, Windows2025, Windows2025_vs2026, Ubuntu2204, Ubuntu2404, Ubuntu2604.
+            The type of image to generate. Valid values are: Windows2022, Windows2022InstallShield, Windows2025, Windows2025_vs2026, Ubuntu2204, Ubuntu2404, Ubuntu2604.
         .PARAMETER ManagedImageName
             The name of the managed image to create. The default is "Runner-Image-{{ImageType}}".
         .PARAMETER AzureLocation
@@ -140,6 +145,11 @@ Function GenerateResourcesAndImage {
         .PARAMETER UseOidc
             If set, authenticate using GitHub Actions OIDC (federated credentials) instead of a client secret.
             Requires AzureClientId and AzureTenantId, and OidcRequestToken/OidcRequestUrl parameters.
+        .PARAMETER UseAzureCliAuth
+            If set, Packer uses Azure CLI credentials (use_azure_cli_auth). Skips temporary service principal creation.
+            Run 'az login' or 'az login --identity' before calling this function.
+        .PARAMETER ManagedIdentityClientId
+            Optional user-assigned managed identity client ID for 'az login --identity -u'. Used with UseAzureCliAuth.
         .PARAMETER OidcRequestToken
             GitHub Actions OIDC request token.
         .PARAMETER OidcRequestUrl
@@ -185,6 +195,10 @@ Function GenerateResourcesAndImage {
         [string] $AzureTenantId,
         [Parameter(Mandatory = $False)]
         [switch] $UseOidc,
+        [Parameter(Mandatory = $False)]
+        [switch] $UseAzureCliAuth,
+        [Parameter(Mandatory = $False)]
+        [string] $ManagedIdentityClientId,
         [Parameter(Mandatory = $False)]
         [ValidateNotNullOrEmpty()]
         [string] $OidcRequestToken,
@@ -264,26 +278,31 @@ Function GenerateResourcesAndImage {
 
     Write-Host "Validating packer template..."
     $validateClientSecret = "fake"
-    if ($UseOidc) {
+    if ($UseOidc -or $UseAzureCliAuth) {
         $validateClientSecret = ""
     }
 
-    & $PackerBinary validate `
-        "-only=$($PackerTemplate.BuildName).*" `
-        "-var=client_id=fake" `
-        "-var=client_secret=$($validateClientSecret)" `
-        "-var=oidc_request_token=fake" `
-        "-var=oidc_request_url=fake" `
-        "-var=subscription_id=$($SubscriptionId)" `
-        "-var=tenant_id=fake" `
-        "-var=location=$($AzureLocation)" `
-        "-var=image_os=$($PackerTemplate.ImageOS)" `
-        "-var=managed_image_name=$($ManagedImageName)" `
-        "-var=managed_image_resource_group_name=$($ResourceGroupName)" `
-        "-var=install_password=$($InstallPassword)" `
-        "-var=allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)" `
-        "-var=azure_tags=$($TagsJson)" `
-        $PackerTemplate.Path
+    $packerValidateArgs = @(
+        "-only=$($PackerTemplate.BuildName).*"
+        "-var=client_id=fake"
+        "-var=client_secret=$($validateClientSecret)"
+        "-var=oidc_request_token=fake"
+        "-var=oidc_request_url=fake"
+        "-var=subscription_id=$($SubscriptionId)"
+        "-var=tenant_id=fake"
+        "-var=location=$($AzureLocation)"
+        "-var=image_os=$($PackerTemplate.ImageOS)"
+        "-var=managed_image_name=$($ManagedImageName)"
+        "-var=managed_image_resource_group_name=$($ResourceGroupName)"
+        "-var=install_password=$($InstallPassword)"
+        "-var=allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)"
+        "-var=azure_tags=$($TagsJson)"
+    )
+    if ($UseAzureCliAuth) {
+        $packerValidateArgs += "-var=use_azure_cli_auth=true"
+    }
+
+    & $PackerBinary validate @packerValidateArgs $PackerTemplate.Path
 
     if ($LastExitCode -ne 0) {
         throw "Packer template validation failed."
@@ -291,7 +310,17 @@ Function GenerateResourcesAndImage {
 
     try {
         # Login to Azure subscription
-        if ([string]::IsNullOrEmpty($AzureClientId)) {
+        if ($UseAzureCliAuth) {
+            Write-Verbose "Using Azure CLI auth for Packer (use_azure_cli_auth)."
+            if (-not [string]::IsNullOrWhiteSpace($ManagedIdentityClientId)) {
+                Write-Host "Logging in with user-assigned managed identity..."
+                az login --identity --username $ManagedIdentityClientId --output none
+            }
+            else {
+                Write-Verbose "Assuming Azure CLI is already authenticated (az login / system MI)."
+            }
+        }
+        elseif ([string]::IsNullOrEmpty($AzureClientId)) {
             Write-Verbose "No AzureClientId was provided, will use interactive login."
             az login --output none
         }
@@ -327,7 +356,16 @@ Function GenerateResourcesAndImage {
         }
 
         # Create / choose authentication for packer
-        if ([string]::IsNullOrEmpty($AzureClientId)) {
+        if ($UseAzureCliAuth) {
+            $ServicePrincipalAppId = ""
+            $ServicePrincipalPassword = ""
+            $TenantId = (az account show --query tenantId -o tsv)
+            if ($LastExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($TenantId)) {
+                throw "Azure CLI is not authenticated. Run 'az login --identity' on the build VM first."
+            }
+            Write-Host "Packer will use Azure CLI credentials (managed identity / az login)."
+        }
+        elseif ([string]::IsNullOrEmpty($AzureClientId)) {
             Write-Host "Creating service principal for packer..."
             $ADCleanupRequired = $true
 
@@ -370,22 +408,28 @@ Function GenerateResourcesAndImage {
         Write-Debug "Service principal app id: $ServicePrincipalAppId."
         Write-Debug "Tenant id: $TenantId."
 
-        & $PackerBinary build -on-error="$($OnError)" `
-            -only "$($PackerTemplate.BuildName).*" `
-            -var "client_id=$($ServicePrincipalAppId)" `
-            -var "client_secret=$($ServicePrincipalPassword)" `
-            -var "oidc_request_token=$($env:PKR_VAR_oidc_request_token)" `
-            -var "oidc_request_url=$($env:PKR_VAR_oidc_request_url)" `
-            -var "subscription_id=$($SubscriptionId)" `
-            -var "tenant_id=$($TenantId)" `
-            -var "location=$($AzureLocation)" `
-            -var "image_os=$($PackerTemplate.ImageOS)" `
-            -var "managed_image_name=$($ManagedImageName)" `
-            -var "managed_image_resource_group_name=$($ResourceGroupName)" `
-            -var "install_password=$($InstallPassword)" `
-            -var "allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)" `
-            -var "azure_tags=$($TagsJson)" `
-            $PackerTemplate.Path
+        $packerBuildArgs = @(
+            "-on-error=$($OnError)"
+            "-only=$($PackerTemplate.BuildName).*"
+            "-var=client_id=$($ServicePrincipalAppId)"
+            "-var=client_secret=$($ServicePrincipalPassword)"
+            "-var=oidc_request_token=$($env:PKR_VAR_oidc_request_token)"
+            "-var=oidc_request_url=$($env:PKR_VAR_oidc_request_url)"
+            "-var=subscription_id=$($SubscriptionId)"
+            "-var=tenant_id=$($TenantId)"
+            "-var=location=$($AzureLocation)"
+            "-var=image_os=$($PackerTemplate.ImageOS)"
+            "-var=managed_image_name=$($ManagedImageName)"
+            "-var=managed_image_resource_group_name=$($ResourceGroupName)"
+            "-var=install_password=$($InstallPassword)"
+            "-var=allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)"
+            "-var=azure_tags=$($TagsJson)"
+        )
+        if ($UseAzureCliAuth) {
+            $packerBuildArgs += "-var=use_azure_cli_auth=true"
+        }
+
+        & $PackerBinary build @packerBuildArgs $PackerTemplate.Path
 
         if ($LastExitCode -ne 0) {
             throw "Failed to build image."

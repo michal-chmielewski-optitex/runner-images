@@ -1,0 +1,244 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.44.1.10279",
+      "templateHash": "1417747880121241090"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure region of the gallery and image definition"
+      }
+    },
+    "galleryResourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource group of the existing Azure Compute Gallery"
+      }
+    },
+    "galleryName": {
+      "type": "string",
+      "defaultValue": "acg_ned_prd_mdp_001",
+      "metadata": {
+        "description": "Existing gallery name"
+      }
+    },
+    "imageDefinitionName": {
+      "type": "string",
+      "defaultValue": "installshield-2025-win2022",
+      "metadata": {
+        "description": "Gallery image definition name to create or update"
+      }
+    },
+    "devOpsInfrastructureServicePrincipalObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "DevOpsInfrastructure SP object ID for gallery Reader role"
+      }
+    },
+    "deployGalleryReaderRole": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy gallery Reader role for DevOpsInfrastructure"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "gallery-image-definition",
+      "resourceGroup": "[parameters('galleryResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "galleryName": {
+            "value": "[parameters('galleryName')]"
+          },
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "imageDefinitionName": {
+            "value": "[parameters('imageDefinitionName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "15537253560833597360"
+            }
+          },
+          "parameters": {
+            "galleryName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing Azure Compute Gallery name"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region of the gallery (required — not available from existing resource at compile time)"
+              }
+            },
+            "imageDefinitionName": {
+              "type": "string",
+              "defaultValue": "installshield-2025-win2022",
+              "metadata": {
+                "description": "Image definition for InstallShield win2022 custom image"
+              }
+            },
+            "osType": {
+              "type": "string",
+              "defaultValue": "Windows",
+              "allowedValues": [
+                "Windows",
+                "Linux"
+              ],
+              "metadata": {
+                "description": "OS type"
+              }
+            },
+            "hyperVGeneration": {
+              "type": "string",
+              "defaultValue": "V2",
+              "allowedValues": [
+                "V1",
+                "V2"
+              ],
+              "metadata": {
+                "description": "Hyper-V generation"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Compute/galleries/images",
+              "apiVersion": "2023-07-03",
+              "name": "[format('{0}/{1}', parameters('galleryName'), parameters('imageDefinitionName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "identifier": {
+                  "publisher": "ned",
+                  "offer": "installshield",
+                  "sku": "win2022-sab"
+                },
+                "osType": "[parameters('osType')]",
+                "osState": "Generalized",
+                "hyperVGeneration": "[parameters('hyperVGeneration')]",
+                "recommended": {
+                  "memory": {
+                    "min": 8,
+                    "max": 32
+                  },
+                  "vCPUs": {
+                    "min": 4,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          ],
+          "outputs": {
+            "imageDefinitionId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Compute/galleries/images', parameters('galleryName'), parameters('imageDefinitionName'))]"
+            },
+            "imageDefinitionName": {
+              "type": "string",
+              "value": "[parameters('imageDefinitionName')]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployGalleryReaderRole')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "gallery-reader-role",
+      "resourceGroup": "[parameters('galleryResourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "galleryName": {
+            "value": "[parameters('galleryName')]"
+          },
+          "devOpsInfrastructureServicePrincipalObjectId": {
+            "value": "[parameters('devOpsInfrastructureServicePrincipalObjectId')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.44.1.10279",
+              "templateHash": "11917856234323904957"
+            }
+          },
+          "parameters": {
+            "galleryName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing Azure Compute Gallery name"
+              }
+            },
+            "devOpsInfrastructureServicePrincipalObjectId": {
+              "type": "string",
+              "metadata": {
+                "description": "Object ID of the DevOpsInfrastructure service principal (tenant-specific). Retrieve with: az ad sp list --filter \"displayName eq 'DevOpsInfrastructure'\" --query \"[0].id\" -o tsv"
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Compute/galleries', parameters('galleryName'))]",
+              "name": "[guid(resourceId('Microsoft.Compute/galleries', parameters('galleryName')), parameters('devOpsInfrastructureServicePrincipalObjectId'), 'Reader')]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+                "principalId": "[parameters('devOpsInfrastructureServicePrincipalObjectId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ],
+          "outputs": {
+            "roleAssignmentId": {
+              "type": "string",
+              "value": "[extensionResourceId(resourceId('Microsoft.Compute/galleries', parameters('galleryName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.Compute/galleries', parameters('galleryName')), parameters('devOpsInfrastructureServicePrincipalObjectId'), 'Reader'))]"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "galleryImageDefinitionId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('galleryResourceGroupName')), 'Microsoft.Resources/deployments', 'gallery-image-definition'), '2025-04-01').outputs.imageDefinitionId.value]"
+    },
+    "galleryImageVersionIdTemplate": {
+      "type": "string",
+      "value": "[format('{0}/versions/{{version}}', reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('galleryResourceGroupName')), 'Microsoft.Resources/deployments', 'gallery-image-definition'), '2025-04-01').outputs.imageDefinitionId.value)]"
+    }
+  }
+}

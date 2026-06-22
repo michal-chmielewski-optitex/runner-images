@@ -354,5 +354,14 @@
     },
     "pwsh": {
         "version": "7.6"
+    },
+    "installshield": {
+        "version": "2025",
+        "installPath": "C:\\Program Files (x86)\\InstallShield\\2025 SAB",
+        "systemPath": "C:\\Program Files (x86)\\InstallShield\\2025 SAB\\System",
+        "installer": {
+            "blobContainer": "installshield-artifacts",
+            "installerBlobName": "InstallShield2025R2StandaloneBuild.exe"
+        }
     }
 }

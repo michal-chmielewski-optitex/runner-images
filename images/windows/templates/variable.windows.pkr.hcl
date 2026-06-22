@@ -177,3 +177,16 @@ variable "temp_dir" {
   type    = string
   default = "D:\\temp"
 }
+variable "installshield_artifacts_storage_account" {
+  type    = string
+  default = "${env("INSTALLSHIELD_ARTIFACTS_STORAGE_ACCOUNT")}"
+}
+variable "installshield_installer_url" {
+  type      = string
+  default   = "${env("INSTALLSHIELD_INSTALLER_URL")}"
+  sensitive = true
+}
+variable "installshield_installer_path" {
+  type    = string
+  default = "${env("INSTALLSHIELD_INSTALLER_PATH")}"
+}
