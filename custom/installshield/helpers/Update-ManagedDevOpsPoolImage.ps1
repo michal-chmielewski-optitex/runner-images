@@ -17,26 +17,33 @@ param(
     [string] $ImageAlias = 'installshield-2025',
 
     [Parameter(Mandatory = $false)]
-    [string] $Buffer = '*'
+    [string] $Buffer = '*',
+
+    [Parameter(Mandatory = $false)]
+    [string] $ApiVersion = '2025-09-20'
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (az extension show --name mdp -o none 2>$null)) {
-    Write-Host "Installing Azure CLI extension 'mdp'..."
-    az extension add --name mdp --upgrade --yes --only-show-errors
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to install Azure CLI extension 'mdp'. Run: az extension add --name mdp --upgrade --yes"
-    }
+$subscriptionId = (az account show --query id -o tsv)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($subscriptionId)) {
+    throw "Azure CLI is not authenticated. Run 'az login' or 'az login --identity' first."
 }
 
-Write-Host "Loading pool '$PoolName'..."
-$pool = az mdp pool show --resource-group $ResourceGroupName --name $PoolName -o json | ConvertFrom-Json
+$poolUri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.DevOpsInfrastructure/pools/$PoolName?api-version=$ApiVersion"
+
+Write-Host "Loading pool '$PoolName' (REST api-version $ApiVersion)..."
+$poolJson = az rest --method get --url $poolUri --only-show-errors
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to load Managed DevOps Pool '$PoolName'."
 }
 
+$pool = $poolJson | ConvertFrom-Json
 $fabric = $pool.properties.fabricProfile
+if (-not $fabric) {
+    throw "Pool '$PoolName' has no fabricProfile."
+}
+
 if (-not $fabric.images) {
     $fabric | Add-Member -NotePropertyName images -NotePropertyValue @() -Force
 }
@@ -69,19 +76,26 @@ if (-not $replaced) {
 }
 
 $fabric.images = $updatedImages.ToArray()
+
+$putBody = [PSCustomObject]@{
+    location   = $pool.location
+    properties = $pool.properties
+}
+if ($null -ne $pool.tags) {
+    $putBody | Add-Member -NotePropertyName tags -NotePropertyValue $pool.tags
+}
+if ($null -ne $pool.identity) {
+    $putBody | Add-Member -NotePropertyName identity -NotePropertyValue $pool.identity
+}
+
 $tempFile = [System.IO.Path]::GetTempFileName() + '.json'
-$fabric | ConvertTo-Json -Depth 20 | Set-Content -Path $tempFile -Encoding UTF8
-
 try {
-    Write-Host "Updating fabricProfile on pool '$PoolName'..."
-    az mdp pool update `
-        --resource-group $ResourceGroupName `
-        --name $PoolName `
-        --fabric-profile "@$tempFile" `
-        --only-show-errors
+    $putBody | ConvertTo-Json -Depth 50 | Set-Content -Path $tempFile -Encoding UTF8
 
+    Write-Host "Updating fabricProfile on pool '$PoolName'..."
+    az rest --method put --url $poolUri --body "@$tempFile" --only-show-errors
     if ($LASTEXITCODE -ne 0) {
-        throw "az mdp pool update failed."
+        throw "Pool update failed."
     }
 }
 finally {
