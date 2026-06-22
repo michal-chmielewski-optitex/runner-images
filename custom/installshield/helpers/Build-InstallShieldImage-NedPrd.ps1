@@ -95,6 +95,7 @@ $env:GALLERY_RG_NAME = $GalleryResourceGroupName
 $env:GALLERY_IMAGE_NAME = $GalleryImageName
 $env:GALLERY_IMAGE_VERSION = $ImageVersion
 $env:GALLERY_STORAGE_ACCOUNT_TYPE = 'Premium_LRS'
+$env:BUILD_RG_NAME = $ResourceGroupName
 
 Write-Host "=== InstallShield image build (NED PRD) ==="
 Write-Host "  Subscription:  $SubscriptionId"

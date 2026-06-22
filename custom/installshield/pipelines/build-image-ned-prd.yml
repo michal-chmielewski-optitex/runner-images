@@ -79,6 +79,7 @@ stages:
                 $env:GALLERY_IMAGE_NAME = '$(galleryImageName)'
                 $env:GALLERY_IMAGE_VERSION = '$(packerGalleryImageVersion)'
                 $env:GALLERY_STORAGE_ACCOUNT_TYPE = 'Premium_LRS'
+                $env:BUILD_RG_NAME = '$(IMAGE_BUILD_RG_NAME)'
                 $env:INSTALLSHIELD_ARTIFACTS_STORAGE_ACCOUNT = '$(INSTALLSHIELD_ARTIFACTS_STORAGE_ACCOUNT)'
 
                 if ('$(INSTALLSHIELD_INSTALLER_SAS_URL)' -ne '') {
