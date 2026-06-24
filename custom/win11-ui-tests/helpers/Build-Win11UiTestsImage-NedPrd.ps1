@@ -74,6 +74,22 @@ $env:GALLERY_IMAGE_VERSION = $ImageVersion
 $env:GALLERY_STORAGE_ACCOUNT_TYPE = 'Premium_LRS'
 $env:BUILD_RG_NAME = $ResourceGroupName
 
+function Test-AcgImageDefinitionExists {
+    param(
+        [string] $GalleryResourceGroup,
+        [string] $Gallery,
+        [string] $ImageDefinition
+    )
+
+    az sig image-definition show `
+        --resource-group $GalleryResourceGroup `
+        --gallery-name $Gallery `
+        --gallery-image-definition $ImageDefinition `
+        --only-show-errors 2>$null | Out-Null
+
+    return $LASTEXITCODE -eq 0
+}
+
 Write-Host "=== Win11 x64 UI tests image build (NED PRD) ==="
 Write-Host "  Subscription:  $SubscriptionId"
 Write-Host "  Location:        $AzureLocation"
@@ -118,6 +134,29 @@ elseif (-not [string]::IsNullOrWhiteSpace($AzureClientId)) {
     $params.AzureClientId = $AzureClientId
     $params.AzureClientSecret = $AzureClientSecret
     $params.AzureTenantId = $AzureTenantId
+}
+
+if ($UseManagedIdentity) {
+    az login --identity --client-id $params.ManagedIdentityClientId --output none
+    az account set --subscription $SubscriptionId
+}
+
+if (-not (Test-AcgImageDefinitionExists -GalleryResourceGroup $GalleryResourceGroupName -Gallery $GalleryName -ImageDefinition $GalleryImageName)) {
+    $bicepPath = Join-Path $repoRoot 'custom\win11-ui-tests\infra\bicep\main.bicep'
+    $bicepParams = Join-Path $repoRoot 'custom\win11-ui-tests\infra\parameters\ned-prd.bicepparam'
+    throw @"
+Gallery image definition '$GalleryImageName' not found in '$GalleryName' (RG: $GalleryResourceGroupName).
+
+Run one-time Bicep deploy before the first Packer build:
+
+  cd $repoRoot
+  az deployment group create `
+    --resource-group $GalleryResourceGroupName `
+    --template-file $bicepPath `
+    --parameters $bicepParams
+
+Then re-run this script.
+"@
 }
 
 GenerateResourcesAndImage @params
