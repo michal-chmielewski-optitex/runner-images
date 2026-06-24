@@ -51,6 +51,7 @@
     "choco": {
         "common_packages": [
             { "name": "NuGet.CommandLine" },
+            { "name": "PSWindowsUpdate" },
             { "name": "vswhere" }
         ]
     },
