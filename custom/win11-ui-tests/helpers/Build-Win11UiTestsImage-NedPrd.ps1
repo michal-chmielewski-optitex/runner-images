@@ -55,7 +55,10 @@ param(
     [string] $ManagedIdentityName = 'id-aib-win11-installer-gui-001',
 
     [Parameter(Mandatory = $false)]
-    [string] $ManagedIdentityResourceGroup = 'rg-ned-prd-mdp-001'
+    [string] $ManagedIdentityResourceGroup = 'rg-ned-prd-mdp-001',
+
+    [Parameter(Mandatory = $false)]
+    [string] $VmSize = 'Standard_D4s_v5'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,6 +99,7 @@ Write-Host "  Location:        $AzureLocation"
 Write-Host "  Gallery:         $GalleryName / $GalleryImageName"
 Write-Host "  Version:         $ImageVersion"
 Write-Host "  Build RG:        $ResourceGroupName"
+Write-Host "  VM size:         $VmSize"
 Write-Host ""
 
 if ($WhatIfPreference) {
@@ -111,6 +115,7 @@ $params = @{
     ManagedImageName              = "win11-vs2022-ui-x64-$ImageVersion"
     ImageGenerationRepositoryRoot = $repoRoot
     OnError                       = 'abort'
+    VmSize                        = $VmSize
 }
 
 if ($RestrictToAgentIpAddress) {

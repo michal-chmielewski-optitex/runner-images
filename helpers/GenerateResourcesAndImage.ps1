@@ -172,6 +172,8 @@ Function GenerateResourcesAndImage {
             The default is 'ask'.
         .PARAMETER Tags
             Tags to be applied to the Azure resources created.
+        .PARAMETER VmSize
+            Azure VM size used for the temporary Packer build VM. Default is Standard_F8s_v2.
         .PARAMETER PluginVersion
             Specify the version of the packer Azure plugin to use. The default is "2.2.1".
         .EXAMPLE
@@ -219,6 +221,9 @@ Function GenerateResourcesAndImage {
         [string] $OnError = "ask",
         [Parameter(Mandatory = $False)]
         [hashtable] $Tags = @{}
+        ,
+        [Parameter(Mandatory = $False)]
+        [string] $VmSize = "Standard_F8s_v2"
     )
 
     Show-LatestCommit -ErrorAction SilentlyContinue
@@ -309,6 +314,7 @@ Function GenerateResourcesAndImage {
         "-var=install_password=$($InstallPassword)"
         "-var=allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)"
         "-var=azure_tags=$($TagsJson)"
+        "-var=vm_size=$($VmSize)"
     ) + $packerBuildLocationArgs
     if ($UseAzureCliAuth) {
         $packerValidateArgs += "-var=use_azure_cli_auth=true"
@@ -435,6 +441,7 @@ Function GenerateResourcesAndImage {
             "-var=install_password=$($InstallPassword)"
             "-var=allowed_inbound_ip_addresses=$($AllowedInboundIpAddresses)"
             "-var=azure_tags=$($TagsJson)"
+            "-var=vm_size=$($VmSize)"
         ) + $packerBuildLocationArgs
         if ($UseAzureCliAuth) {
             $packerBuildArgs += "-var=use_azure_cli_auth=true"
