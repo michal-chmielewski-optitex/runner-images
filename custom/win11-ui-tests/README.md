@@ -19,7 +19,8 @@ az deployment group create \
   --parameters custom/win11-ui-tests/infra/parameters/ned-prd.bicepparam
 ```
 
-Creates gallery image definition `win11-vs2022-ui-x64`.
+Creates gallery image definition `win11-vs2022-ui-x64`.  
+`deployGalleryReaderRole` defaults to `false` — ACG Reader for DevOpsInfrastructure was already deployed with InstallShield Bicep; packer MI has Contributor only (no `roleAssignments/write`).
 
 ### 2. Managed DevOps Pool for UI tests
 

@@ -147,13 +147,14 @@ if (-not (Test-AcgImageDefinitionExists -GalleryResourceGroup $GalleryResourceGr
     throw @"
 Gallery image definition '$GalleryImageName' not found in '$GalleryName' (RG: $GalleryResourceGroupName).
 
-Run one-time Bicep deploy before the first Packer build:
+Run one-time Bicep deploy before the first Packer build (Reader role skipped — already set for InstallShield):
 
   cd $repoRoot
   az deployment group create `
     --resource-group $GalleryResourceGroupName `
     --template-file $bicepPath `
-    --parameters $bicepParams
+    --parameters $bicepParams `
+    --parameters deployGalleryReaderRole=false
 
 Then re-run this script.
 "@
