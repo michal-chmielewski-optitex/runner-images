@@ -35,6 +35,10 @@ if ((Test-IsWin25-X64) -and $env:INSTALL_VS_2026) {
     $imageLabel = "windows-11-arm64"
     $softwareUrl = "${githubUrl}/win11-arm64/$imageMajorVersion.$imageMinorVersion/images/windows/Windows11-Arm64-Readme.md"
     $releaseUrl = "https://github.com/actions/runner-images/releases/tag/win11-arm64%2F$imageMajorVersion.$imageMinorVersion"
+} elseif (Test-IsWin11-X64) {
+    $imageLabel = "windows-11-x64-ui-tests"
+    $softwareUrl = "${githubUrl}/win11-x64-ui-tests/$imageMajorVersion.$imageMinorVersion/images/windows/Windows11-X64-UiTests-Readme.md"
+    $releaseUrl = "https://github.com/actions/runner-images/releases/tag/win11-x64-ui-tests%2F$imageMajorVersion.$imageMinorVersion"
 } else {
     throw "Invalid platform version is found. Either Windows Server 2022, 2025 or Windows 11 are required"
 }

@@ -30,6 +30,7 @@ Export-ModuleMember -Function @(
     'Test-IsX64'
     'Test-IsWin25-X64'
     'Test-IsWin22-X64'
+    'Test-IsWin11-X64'
     'Test-IsWin11-Arm64'
     'Expand-7ZipArchive'
     'Get-WindowsUpdateStates'

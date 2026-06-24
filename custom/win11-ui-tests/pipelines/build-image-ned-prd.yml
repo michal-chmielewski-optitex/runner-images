@@ -1,0 +1,139 @@
+# Build Win11 x64 UI tests image and publish to existing ACG / MDP (NED PRD)
+#
+# Prerequisites (Azure DevOps):
+#   - Service connection: azureServiceConnection (Contributor on image RG + gallery RG)
+#   - Variable group: win11-ui-tests-image-build
+#   - Agent pool with Packer, Git, Azure CLI (reuse packer build VM)
+#
+# One-time: deploy Bicep (gallery image definition + Reader role):
+#   az deployment group create -g rg-ned-prd-mdp-001 -f custom/win11-ui-tests/infra/bicep/main.bicep -p custom/win11-ui-tests/infra/parameters/ned-prd.bicepparam
+
+trigger: none
+
+parameters:
+  - name: imageVersion
+    displayName: Gallery image version (semver, e.g. 1.0.0)
+    type: string
+    default: '1.0.0'
+  - name: updateManagedDevOpsPool
+    displayName: Register version on Managed DevOps Pool
+    type: boolean
+    default: true
+  - name: enableInteractiveMode
+    displayName: Set MDP logonType to Interactive (UI tests)
+    type: boolean
+    default: true
+
+variables:
+  - group: win11-ui-tests-image-build
+  - name: azureServiceConnection
+    value: sc-ned-prd-arm
+  - name: galleryImageName
+    value: win11-vs2022-ui-x64
+  - name: imageAlias
+    value: win11-vs2022-ui-x64
+  - name: MDP_POOL_NAME
+    value: mdp-ned-prd-uittest-001
+  - name: GALLERY_NAME
+    value: acg_ned_prd_mdp_001
+  - name: packerGalleryImageVersion
+    value: ${{ parameters.imageVersion }}
+
+stages:
+  - stage: BuildImage
+    displayName: Packer build + ACG publish
+    jobs:
+      - job: Packer
+        displayName: Build win11-vs2022-ui-x64
+        pool:
+          name: Default
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            displayName: Install Packer
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: ps
+              scriptLocation: inlineScript
+              inlineScript: |
+                choco install packer -y --no-progress
+                packer plugins install github.com/hashicorp/azure 2.2.1
+
+          - task: AzureCLI@2
+            displayName: Build image and publish to ACG
+            name: packerBuild
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: ps
+              scriptLocation: inlineScript
+              addSpnToEnvironment: true
+              inlineScript: |
+                $ErrorActionPreference = 'Stop'
+                Import-Module "$(Build.SourcesDirectory)/helpers/GenerateResourcesAndImage.ps1"
+
+                $env:GALLERY_NAME = '$(GALLERY_NAME)'
+                $env:GALLERY_RG_NAME = '$(GALLERY_RG_NAME)'
+                $env:GALLERY_IMAGE_NAME = '$(galleryImageName)'
+                $env:GALLERY_IMAGE_VERSION = '$(packerGalleryImageVersion)'
+                $env:GALLERY_STORAGE_ACCOUNT_TYPE = 'Premium_LRS'
+                $env:BUILD_RG_NAME = '$(IMAGE_BUILD_RG_NAME)'
+
+                GenerateResourcesAndImage `
+                  -SubscriptionId '$(SUBSCRIPTION_ID)' `
+                  -ResourceGroupName '$(IMAGE_BUILD_RG_NAME)' `
+                  -ImageType Windows11_x64_ui_tests `
+                  -AzureLocation '$(AZURE_LOCATION)' `
+                  -ManagedImageName "win11-vs2022-ui-x64-$(packerGalleryImageVersion)" `
+                  -AzureClientId $env:servicePrincipalId `
+                  -AzureClientSecret $env:servicePrincipalKey `
+                  -AzureTenantId $env:tenantId `
+                  -OnError abort
+
+                $versionId = "/subscriptions/$(SUBSCRIPTION_ID)/resourceGroups/$(GALLERY_RG_NAME)/providers/Microsoft.Compute/galleries/$(GALLERY_NAME)/images/$(galleryImageName)/versions/$(packerGalleryImageVersion)"
+                Write-Host "##vso[task.setvariable variable=GalleryImageVersionResourceId;isOutput=true]$versionId"
+                Write-Host "Published: $versionId"
+
+  - stage: RegisterMdp
+    displayName: Register image on MDP
+    dependsOn: BuildImage
+    condition: and(succeeded(), eq('${{ parameters.updateManagedDevOpsPool }}', true))
+    variables:
+      galleryImageVersionResourceId: $[ stageDependencies.BuildImage.Packer.outputs['packerBuild.GalleryImageVersionResourceId'] ]
+    jobs:
+      - job: UpdatePool
+        displayName: Update mdp-ned-prd-uittest-001
+        pool:
+          vmImage: windows-latest
+        steps:
+          - checkout: self
+            fetchDepth: 1
+
+          - task: AzureCLI@2
+            displayName: Update Managed DevOps Pool image
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: pscore
+              scriptLocation: inlineScript
+              inlineScript: |
+                $ErrorActionPreference = 'Stop'
+                & '$(Build.SourcesDirectory)/custom/win11-ui-tests/helpers/Update-ManagedDevOpsPoolImage.ps1' `
+                  -ResourceGroupName '$(MDP_RG_NAME)' `
+                  -PoolName '$(MDP_POOL_NAME)' `
+                  -GalleryImageVersionResourceId '$(galleryImageVersionResourceId)' `
+                  -ImageAlias '$(imageAlias)'
+
+          - task: AzureCLI@2
+            displayName: Enable interactive desktop on MDP
+            condition: eq('${{ parameters.enableInteractiveMode }}', true)
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              scriptType: pscore
+              scriptLocation: inlineScript
+              inlineScript: |
+                $ErrorActionPreference = 'Stop'
+                & '$(Build.SourcesDirectory)/custom/win11-ui-tests/helpers/Set-ManagedDevOpsPoolInteractiveMode.ps1' `
+                  -ResourceGroupName '$(MDP_RG_NAME)' `
+                  -PoolName '$(MDP_POOL_NAME)' `
+                  -LogonType 'Interactive'

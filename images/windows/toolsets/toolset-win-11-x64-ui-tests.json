@@ -1,0 +1,70 @@
+{
+    "toolcache": [],
+    "powershellModules": [
+        { "name": "Pester" },
+        { "name": "PowerShellGet" },
+        { "name": "VSSetup" }
+    ],
+    "azureModules": [],
+    "java": {
+        "default": "21",
+        "versions": [ "21" ]
+    },
+    "windowsFeatures": [],
+    "visualStudio": {
+        "version": "2022",
+        "subversion": "17",
+        "edition": "Enterprise",
+        "channel": "release",
+        "installChannelUri": "",
+        "workloads": [
+            "Microsoft.VisualStudio.Workload.ManagedDesktop",
+            "Microsoft.Net.Component.4.8.TargetingPack",
+            "Microsoft.Net.Component.4.8.1.SDK",
+            "Microsoft.Net.Component.4.8.1.TargetingPack",
+            "Microsoft.Net.ComponentGroup.4.8.DeveloperTools",
+            "Microsoft.Net.ComponentGroup.4.8.1.DeveloperTools",
+            "Microsoft.NetCore.Component.DevelopmentTools",
+            "Microsoft.VisualStudio.Component.EntityFramework",
+            "Microsoft.VisualStudio.Component.DiagnosticTools",
+            "Microsoft.VisualStudio.Component.IntelliCode",
+            "Microsoft.VisualStudio.Component.Debugger.JustInTime",
+            "Microsoft.VisualStudio.Component.DotNetModelBuilder",
+            "Component.VisualStudio.GitHub.Copilot",
+            "ComponentGroup.Microsoft.NET.AppModernization",
+            "Microsoft.ComponentGroup.Blend",
+            "Component.Microsoft.VisualStudio.LiveShare.2022"
+        ],
+        "vsix": []
+    },
+    "dotnet": {
+        "versions": [
+            "8.0",
+            "9.0"
+        ],
+        "tools": [],
+        "warmup": false
+    },
+    "nunit": {
+        "version": "3.19.2"
+    },
+    "choco": {
+        "common_packages": [
+            { "name": "NuGet.CommandLine" },
+            { "name": "vswhere" }
+        ]
+    },
+    "selenium": {
+        "version": "4"
+    },
+    "node": {
+        "default": "22.*"
+    },
+    "npm": {
+        "global_packages": []
+    },
+    "pipx": [],
+    "pwsh": {
+        "version": "7.6"
+    }
+}

@@ -9,4 +9,5 @@ foreach ($package in $commonPackages) {
     Install-ChocoPackage $package.name -Version $package.version -ArgumentList $package.args
 }
 
-Invoke-PesterTests -TestFile "ChocoPackages"
+$chocoTestFile = if ($env:IMAGE_UI_TESTS_BUILD -eq 'true') { 'ChocoPackages-UiTests' } else { 'ChocoPackages' }
+Invoke-PesterTests -TestFile $chocoTestFile

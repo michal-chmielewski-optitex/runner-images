@@ -432,6 +432,16 @@ function Test-IsWin22-X64 {
     (Test-IsWin22) -and (Test-IsX64)
 }
 
+function Test-IsWin11-X64 {
+    <#
+    .SYNOPSIS
+        Checks if the current Windows operating system is Windows 11 running on x64 architecture.
+    .OUTPUTS
+        Returns $true if the current Windows operating system is Windows 11 running on x64 architecture.
+    #>
+    (Test-IsWin11) -and (Test-IsX64)
+}
+
 function Test-IsWin11-Arm64 {
     <#
     .SYNOPSIS

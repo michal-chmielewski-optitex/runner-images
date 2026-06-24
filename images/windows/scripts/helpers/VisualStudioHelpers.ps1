@@ -57,13 +57,14 @@ Function Install-VisualStudio {
     Test-FileSignature -Path $bootstrapperFilePath -ExpectedSubject $(Get-MicrosoftPublisher)
 
     try {
+        $componentSuffix = if ($env:VS_INSTALL_EXACT_COMPONENTS -eq 'true') { "" } else { ";includeRecommended" }
         $responseData = @{
             "installChannelUri" = $installChannelUri
             "channelUri"        = $channelUri
             "channelId"         = $channelId
             "productId"         = $productId
             "arch"              = $Architecture
-            "add"               = $RequiredComponents | ForEach-Object { "$_;includeRecommended" }
+            "add"               = $RequiredComponents | ForEach-Object { "$_$componentSuffix" }
         }
 
         # Create json file with response data
