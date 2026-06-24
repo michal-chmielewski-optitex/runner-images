@@ -67,13 +67,14 @@ build {
   provisioner "powershell" {
     elevated_password = "${var.install_password}"
     elevated_user     = "${var.install_user}"
-    inline            = ["bcdedit.exe /set TESTSIGNING ON"]
+    inline            = ["Import-Module ImageHelpers -DisableNameChecking -Force", "bcdedit.exe /set TESTSIGNING ON"]
   }
 
   provisioner "powershell" {
     environment_vars = ["IMAGE_VERSION=${var.image_version}", "IMAGE_OS=${var.image_os}", "AGENT_TOOLSDIRECTORY=${var.agent_tools_directory}", "IMAGEDATA_FILE=${var.imagedata_file}", "IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
     execution_policy = "unrestricted"
     scripts          = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Configure-WindowsDefender.ps1",
       "${path.root}/../scripts/build/Configure-PowerShell.ps1",
       "${path.root}/../scripts/build/Install-PowerShellModules.ps1",
@@ -92,6 +93,7 @@ build {
   provisioner "powershell" {
     environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
     scripts          = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-PowershellCore.ps1"
     ]
   }
@@ -105,6 +107,7 @@ build {
     elevated_user     = "${var.install_user}"
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
     scripts           = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-VisualStudio-UiTests.ps1"
     ]
     valid_exit_codes  = [0, 3010]
@@ -119,6 +122,7 @@ build {
     pause_before     = "2m0s"
     environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}", "IMAGE_UI_TESTS_BUILD=true"]
     scripts          = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-ChocolateyPackages.ps1",
       "${path.root}/../scripts/build/Install-DotnetSDK.ps1",
       "${path.root}/../scripts/build/Install-NUnit.ps1",
@@ -132,6 +136,7 @@ build {
     elevated_user     = "${var.install_user}"
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
     scripts           = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-WindowsUpdates.ps1",
       "${path.root}/../scripts/build/Configure-DynamicPort.ps1",
       "${path.root}/../scripts/build/Configure-GDIProcessHandleQuota.ps1",
@@ -158,6 +163,7 @@ build {
     pause_before     = "2m0s"
     environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=${var.temp_dir}"]
     scripts          = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1",
       "${path.root}/../scripts/build/Invoke-Cleanup.ps1",
       "${path.root}/../scripts/tests/Run-UiTests-Tests.ps1"
@@ -192,6 +198,7 @@ build {
   provisioner "powershell" {
     environment_vars = ["INSTALL_USER=${var.install_user}"]
     scripts          = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-NativeImages.ps1",
       "${path.root}/../scripts/build/Configure-System.ps1",
       "${path.root}/../scripts/build/Configure-User.ps1",
