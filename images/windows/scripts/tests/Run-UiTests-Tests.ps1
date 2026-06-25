@@ -3,6 +3,10 @@
 ##  Desc:  Pester validation for lean Win11 x64 UI test image
 ################################################################################
 
+Import-Module ImageHelpers -DisableNameChecking -Force
+Import-Module Pester -Force
+Import-Module TestsHelpers -Force
+
 $testPaths = @(
     'VisualStudio.Tests.ps1',
     'NUnit.Tests.ps1',
