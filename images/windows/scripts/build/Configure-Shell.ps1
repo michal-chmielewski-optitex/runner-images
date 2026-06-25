@@ -1,8 +1,9 @@
 # Create shells folder
 $shellPath = "C:\shells"
-New-Item -Path $shellPath -ItemType Directory | Out-Null
+New-Item -Path $shellPath -ItemType Directory -Force | Out-Null
 
-if (Test-IsX64) {
+$msysBashPath = "C:\msys64\usr\bin\bash.exe"
+if (Test-IsX64 -and (Test-Path $msysBashPath)) {
     # add a wrapper for C:\msys64\usr\bin\bash.exe
 @'
 @echo off
@@ -15,7 +16,19 @@ C:\msys64\usr\bin\bash.exe -leo pipefail %*
 }
 
 # gitbash <--> C:\Program Files\Git\bin\bash.exe
-New-Item -ItemType SymbolicLink -Path "$shellPath\gitbash.exe" -Target "$env:ProgramFiles\Git\bin\bash.exe" | Out-Null
+$gitBashPath = "$env:ProgramFiles\Git\bin\bash.exe"
+if (Test-Path $gitBashPath) {
+    New-Item -ItemType SymbolicLink -Path "$shellPath\gitbash.exe" -Target $gitBashPath -Force | Out-Null
+}
+else {
+    Write-Host "Skipping gitbash.exe symlink; Git bash not installed ($gitBashPath)"
+}
 
 # wslbash <--> C:\Windows\System32\bash.exe
-New-Item -ItemType SymbolicLink -Path "$shellPath\wslbash.exe" -Target "$env:SystemRoot\System32\bash.exe" | Out-Null
+$wslBashPath = "$env:SystemRoot\System32\bash.exe"
+if (Test-Path $wslBashPath) {
+    New-Item -ItemType SymbolicLink -Path "$shellPath\wslbash.exe" -Target $wslBashPath -Force | Out-Null
+}
+else {
+    Write-Host "Skipping wslbash.exe symlink; WSL bash not installed ($wslBashPath)"
+}
