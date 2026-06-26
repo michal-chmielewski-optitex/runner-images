@@ -199,7 +199,7 @@ build {
     environment_vars = ["INSTALL_USER=${var.install_user}"]
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
-      "${path.root}/../scripts/build/Install-NativeImages.ps1",
+      "${path.root}/../scripts/build/Install-NativeImages-UiTests.ps1",
       "${path.root}/../scripts/build/Configure-System.ps1",
       "${path.root}/../scripts/build/Configure-User.ps1",
       "${path.root}/../scripts/build/Post-Build-Validation.ps1"
