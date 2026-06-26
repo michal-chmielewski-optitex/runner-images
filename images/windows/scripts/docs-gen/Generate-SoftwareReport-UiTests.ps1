@@ -58,11 +58,17 @@ $netCoreTools.AddToolVersionsListInline(".NET Framework", $(Get-DotnetFrameworkV
 Get-DotnetRuntimes | ForEach-Object {
     $netCoreTools.AddToolVersionsListInline($_.Runtime, $_.Versions, '^.+')
 }
-$netCoreTools.AddNodes($(Get-DotnetTools))
+$dotnetToolNodes = @(Get-DotnetTools)
+if ($dotnetToolNodes.Count -gt 0) {
+    $netCoreTools.AddNodes($dotnetToolNodes)
+}
 
 $psTools = $installedSoftware.AddHeader("PowerShell Tools")
 $psTools.AddToolVersion("PowerShell", $(Get-PowershellCoreVersion))
-$psTools.AddHeader("Powershell Modules").AddNodes($(Get-PowerShellModules))
+$psModuleNodes = @(Get-PowerShellModules)
+if ($psModuleNodes.Count -gt 0) {
+    $psTools.AddHeader("Powershell Modules").AddNodes($psModuleNodes)
+}
 
 $softwareReport.ToJson() | Out-File -FilePath "C:\software-report.json" -Encoding UTF8NoBOM
 $softwareReport.ToMarkdown() | Out-File -FilePath "C:\software-report.md" -Encoding UTF8NoBOM
