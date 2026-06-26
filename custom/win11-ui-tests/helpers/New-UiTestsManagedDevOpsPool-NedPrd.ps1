@@ -34,19 +34,37 @@ param(
     [int] $MaximumConcurrency = 2,
 
     [Parameter(Mandatory = $false)]
-    [string] $ApiVersion = '2025-09-20'
+    [string] $ApiVersion = '2025-09-20',
+
+    [Parameter(Mandatory = $false)]
+    [int] $ProvisioningPollSeconds = 900
 )
 
 $ErrorActionPreference = 'Stop'
 
-$subscriptionId = (az account show --query id -o tsv)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($subscriptionId)) {
-    throw "Azure CLI is not authenticated. Run 'az login' or 'az login --identity' first."
+$account = az account show -o json | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $null -eq $account) {
+    throw "Azure CLI is not authenticated. Run 'az login' first."
 }
+
+$subscriptionId = $account.id
+$userType = $account.user.type
+$userName = $account.user.name
 
 $baseUri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.DevOpsInfrastructure/pools"
 $sourceUri = '{0}/{1}?api-version={2}' -f $baseUri, $SourcePoolName, $ApiVersion
 $targetUri = '{0}/{1}?api-version={2}' -f $baseUri, $PoolName, $ApiVersion
+
+if ($userType -eq 'servicePrincipal') {
+    throw @"
+Pool creation requires a user account with Azure DevOps agent pool permissions, not a managed identity or service principal.
+Currently signed in as: $userName
+
+Run 'az login' (interactive) as a member of https://dev.azure.com/NEDGRAPHICS with project-level Agent pools Administrator or Creator on Optitex, then retry.
+If a pool was already created by MI, delete it first:
+  az rest --method delete --url '$targetUri'
+"@
+}
 
 Write-Host "Loading template pool '$SourcePoolName'..."
 $sourceJson = az rest --method get --url $sourceUri --only-show-errors
@@ -81,9 +99,10 @@ $props.fabricProfile.osProfile | Add-Member -NotePropertyName logonType -NotePro
 
 $props.fabricProfile.images = @(
     [PSCustomObject]@{
-        resourceId = $GalleryImageVersionResourceId
-        aliases    = @($ImageAlias)
-        buffer     = '*'
+        resourceId    = $GalleryImageVersionResourceId
+        aliases       = @($ImageAlias)
+        buffer        = '*'
+        ephemeralType = 'Automatic'
     }
 )
 
@@ -116,7 +135,29 @@ finally {
     Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Done. Pipelines:"
+Write-Host "Waiting for pool provisioning (up to $ProvisioningPollSeconds s)..."
+$deadline = (Get-Date).AddSeconds($ProvisioningPollSeconds)
+$finalState = $null
+do {
+    Start-Sleep -Seconds 15
+    $status = az rest --method get --url $targetUri --only-show-errors | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to read provisioning state for '$PoolName'."
+    }
+    $finalState = $status.properties.provisioningState
+    Write-Host "  provisioningState: $finalState"
+} while ($finalState -in @('Accepted', 'Provisioning', 'Updating') -and (Get-Date) -lt $deadline)
+
+if ($finalState -ne 'Succeeded') {
+    throw @"
+Pool '$PoolName' did not reach provisioningState Succeeded (last state: $finalState).
+Check Azure Portal > rg-ned-prd-mdp-001 > $PoolName > Overview (Pool Provisioning Health / error codes).
+Common fix: delete the pool and recreate after 'az login' as an ADO user with Agent pools Administrator or Creator on project Optitex.
+"@
+}
+
+Write-Host "Done. Pool is visible in https://dev.azure.com/NEDGRAPHICS/_settings/managedpools after refresh."
+Write-Host "Pipelines:"
 Write-Host "  pool:"
 Write-Host "    name: $PoolName"
 Write-Host "    demands:"

@@ -26,9 +26,12 @@ Creates gallery image definition `win11-vs2022-ui-x64`.
 
 Osobna pula **`mdp-ned-prd-uittest-001`** — `logonType: Interactive` dotyczy całej puli. Nie mieszaj z pulą headless `mdp-ned-prd-winbuild-001` (InstallShield).
 
-Po pierwszym buildzie obrazu:
+Po pierwszym buildzie obrazu — **utwórz pulę jako użytkownik ADO** (`az login`, nie `--identity`). Managed identity wystarczy do buildu obrazu, ale rejestracja puli w ADO wymaga konta z uprawnieniami Agent pools Administrator/Creator w projekcie Optitex.
 
 ```powershell
+az login
+az account set --subscription 426ea593-fd6e-40a0-a314-be2b3d6a2a06
+
 $versionId = '/subscriptions/426ea593-fd6e-40a0-a314-be2b3d6a2a06/resourceGroups/rg-ned-prd-mdp-001/providers/Microsoft.Compute/galleries/acg_ned_prd_mdp_001/images/win11-vs2022-ui-x64/versions/1.0.0'
 
 .\New-UiTestsManagedDevOpsPool-NedPrd.ps1 `

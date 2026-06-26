@@ -101,9 +101,12 @@ cd custom\win11-ui-tests\helpers
 .\Build-Win11UiTestsImage-NedPrd.ps1 -ImageVersion '1.0.0' -UseManagedIdentity -RestrictToAgentIpAddress
 ```
 
-Po buildzie (pierwszy raz — utwórz pulę):
+Po buildzie (pierwszy raz — utwórz pulę jako użytkownik ADO, `az login` bez `--identity`):
 
 ```powershell
+az login
+az account set --subscription 426ea593-fd6e-40a0-a314-be2b3d6a2a06
+
 $versionId = '/subscriptions/426ea593-fd6e-40a0-a314-be2b3d6a2a06/resourceGroups/rg-ned-prd-mdp-001/providers/Microsoft.Compute/galleries/acg_ned_prd_mdp_001/images/win11-vs2022-ui-x64/versions/1.0.0'
 
 # Cofnij jeśli alias trafił na winbuild:
