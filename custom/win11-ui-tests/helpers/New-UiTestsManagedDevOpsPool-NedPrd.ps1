@@ -31,7 +31,10 @@ param(
     [string] $LogonType = 'Interactive',
 
     [Parameter(Mandatory = $false)]
-    [int] $MaximumConcurrency = 2,
+    [int] $MaximumConcurrency = 1,
+
+    [Parameter(Mandatory = $false)]
+    [string] $SkuName = 'Standard_D4as_v5',
 
     [Parameter(Mandatory = $false)]
     [string] $ApiVersion = '2025-09-20',
@@ -90,7 +93,12 @@ $source = $sourceJson | ConvertFrom-Json
 $props = $source.properties | ConvertTo-Json -Depth 50 | ConvertFrom-Json
 
 $props.PSObject.Properties.Remove('provisioningState')
-$props.maximumConcurrency = $MaximumConcurrency
+$props.maximumConcurrency = [int]$MaximumConcurrency
+$props.fabricProfile.sku.name = $SkuName
+
+foreach ($org in @($props.organizationProfile.organizations)) {
+    $org.parallelism = [int]$MaximumConcurrency
+}
 
 if (-not $props.fabricProfile.osProfile) {
     $props.fabricProfile | Add-Member -NotePropertyName osProfile -NotePropertyValue ([PSCustomObject]@{}) -Force
@@ -125,7 +133,7 @@ if ($WhatIfPreference) {
 $tempFile = [System.IO.Path]::GetTempFileName() + '.json'
 try {
     $putBody | ConvertTo-Json -Depth 50 | Set-Content -Path $tempFile -Encoding UTF8
-    Write-Host "Creating pool '$PoolName' (logonType=$LogonType, alias=$ImageAlias)..."
+    Write-Host "Creating pool '$PoolName' (sku=$SkuName, maxAgents=$MaximumConcurrency, logonType=$LogonType, alias=$ImageAlias)..."
     az rest --method put --url $targetUri --body "@$tempFile" --only-show-errors
     if ($LASTEXITCODE -ne 0) {
         throw "Pool create failed."
@@ -140,10 +148,25 @@ $deadline = (Get-Date).AddSeconds($ProvisioningPollSeconds)
 $finalState = $null
 do {
     Start-Sleep -Seconds 15
-    $status = az rest --method get --url $targetUri --only-show-errors | ConvertFrom-Json
+    $prevErrorAction = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $statusJson = az rest --method get --url $targetUri --only-show-errors 2>&1
+    }
+    finally {
+        $ErrorActionPreference = $prevErrorAction
+    }
     if ($LASTEXITCODE -ne 0) {
+        $failedLog = az monitor activity-log list --resource-group $ResourceGroupName --offset 30m -o json | ConvertFrom-Json |
+            Where-Object { $_.resourceId -like "*$PoolName*" -and $_.status.value -eq 'Failed' } |
+            Sort-Object eventTimestamp -Descending |
+            Select-Object -First 1
+        if ($failedLog -and $failedLog.properties.statusMessage) {
+            throw "Pool '$PoolName' provisioning failed (resource removed). $($failedLog.properties.statusMessage)"
+        }
         throw "Failed to read provisioning state for '$PoolName'."
     }
+    $status = $statusJson | ConvertFrom-Json
     $finalState = $status.properties.provisioningState
     Write-Host "  provisioningState: $finalState"
 } while ($finalState -in @('Accepted', 'Provisioning', 'Updating') -and (Get-Date) -lt $deadline)

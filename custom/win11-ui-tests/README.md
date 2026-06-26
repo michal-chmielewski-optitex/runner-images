@@ -40,6 +40,16 @@ $versionId = '/subscriptions/426ea593-fd6e-40a0-a314-be2b3d6a2a06/resourceGroups
 
 Tworzy pulę (klon `mdp-ned-prd-winbuild-001` + `Interactive` + tylko alias `win11-vs2022-ui-x64`).
 
+Domyślnie `Standard_D4as_v5` / `maximumConcurrency=1` — mieści się w aktualnym MDP quota obok `winbuild` (`Standard_D8s_v5` wymaga podniesienia `standardDSv5Family` w `germanywestcentral`). Po zwiększeniu quota możesz podnieść SKU w Azure Portal lub przez REST.
+
+```powershell
+# docelowo po podniesieniu quota:
+.\New-UiTestsManagedDevOpsPool-NedPrd.ps1 `
+  -GalleryImageVersionResourceId $versionId `
+  -SkuName 'Standard_D8s_v5' `
+  -MaximumConcurrency 2
+```
+
 Jeśli przez pomyłkę zarejestrowałeś obraz na `mdp-ned-prd-winbuild-001`, usuń go:
 
 ```powershell
