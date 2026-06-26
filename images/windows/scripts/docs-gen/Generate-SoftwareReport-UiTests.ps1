@@ -45,7 +45,7 @@ $visualStudio = $installedSoftware.AddHeader($vsTable.Name)
 $visualStudio.AddTable($vsTable)
 
 $workloads = $visualStudio.AddHeader("Workloads, components and extensions")
-$workloads.AddTable((Get-VisualStudioComponents) + (Get-VisualStudioExtensions))
+$workloads.AddTable($(Get-VisualStudioComponents))
 
 $msVisualCpp = $visualStudio.AddHeader("Microsoft Visual C++")
 $msVisualCpp.AddTable($(Get-VisualCPPComponents))
