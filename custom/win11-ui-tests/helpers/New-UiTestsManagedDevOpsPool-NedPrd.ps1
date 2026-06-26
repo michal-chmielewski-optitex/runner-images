@@ -54,9 +54,18 @@ if ($LASTEXITCODE -ne 0) {
     throw "Failed to load source pool '$SourcePoolName'."
 }
 
-$existing = az rest --method get --url $targetUri --only-show-errors 2>$null
-if ($LASTEXITCODE -eq 0) {
-    throw "Pool '$PoolName' already exists. Use Update-ManagedDevOpsPoolImage.ps1 or delete the pool first."
+Write-Host "Checking whether pool '$PoolName' already exists..."
+$prevErrorAction = $ErrorActionPreference
+try {
+    # az rest writes 404 to stderr; with $ErrorActionPreference Stop that aborts before $LASTEXITCODE is checked.
+    $ErrorActionPreference = 'Continue'
+    $null = az rest --method get --url $targetUri --only-show-errors 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        throw "Pool '$PoolName' already exists. Use Update-ManagedDevOpsPoolImage.ps1 or delete the pool first."
+    }
+}
+finally {
+    $ErrorActionPreference = $prevErrorAction
 }
 
 $source = $sourceJson | ConvertFrom-Json
