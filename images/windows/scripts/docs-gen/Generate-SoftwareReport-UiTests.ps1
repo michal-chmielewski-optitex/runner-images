@@ -23,6 +23,14 @@ function Get-NUnitConsoleVersion {
     return [System.Diagnostics.FileVersionInfo]::GetVersionInfo($consoleExe.FullName).FileVersion
 }
 
+function Get-UiTestsPowerShellModuleNodes {
+    return (Get-ToolsetContent).powershellModules.name | Sort-Object | ForEach-Object {
+        $moduleName = $_
+        $moduleVersions = Get-Module -Name $moduleName -ListAvailable | Select-Object -ExpandProperty Version | Sort-Object -Unique
+        [ToolVersionsListNode]::new($moduleName, $moduleVersions, '^\d+', "Inline")
+    }
+}
+
 $softwareReport = [SoftwareReport]::new($(Build-OSInfoSection))
 $installedSoftware = $softwareReport.Root.AddHeader("Installed Software")
 
@@ -65,7 +73,7 @@ if ($dotnetToolNodes.Count -gt 0) {
 
 $psTools = $installedSoftware.AddHeader("PowerShell Tools")
 $psTools.AddToolVersion("PowerShell", $(Get-PowershellCoreVersion))
-$psModuleNodes = @(Get-PowerShellModules)
+$psModuleNodes = @(Get-UiTestsPowerShellModuleNodes)
 if ($psModuleNodes.Count -gt 0) {
     $psTools.AddHeader("Powershell Modules").AddNodes($psModuleNodes)
 }
