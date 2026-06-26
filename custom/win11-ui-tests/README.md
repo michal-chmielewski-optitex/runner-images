@@ -5,7 +5,7 @@ Custom agent image for **interactive GUI testing** on Azure DevOps Managed DevOp
 | Layer | Responsibility |
 |-------|----------------|
 | **VM image (this repo)** | Windows 11 Enterprise **x64**, VS 2022 (.NET desktop workload 1:1 baremetal), .NET SDK 8/9, NUnit Console, WinAppDriver, Developer Mode |
-| **MDP pool** | `logonType: Interactive` — interaktywna sesja desktopowa (mysz, okna) |
+| **MDP pool** | Osobna pula `mdp-ned-prd-uittest-001` z `logonType: Interactive` |
 | **Pipeline testowy** | pytest / WinAppDriver / pywinauto na agencie z `ImageOverride` |
 
 ## One-time setup
@@ -24,7 +24,27 @@ Creates gallery image definition `win11-vs2022-ui-x64`.
 
 ### 2. Managed DevOps Pool for UI tests
 
-Utwórz **osobną** pulę MDP (np. `mdp-ned-prd-uittest-001`) — `logonType: Interactive` dotyczy całej puli, nie pojedynczego obrazu. Nie mieszaj z pulą headless (`mdp-ned-prd-winbuild-001` / InstallShield).
+Osobna pula **`mdp-ned-prd-uittest-001`** — `logonType: Interactive` dotyczy całej puli. Nie mieszaj z pulą headless `mdp-ned-prd-winbuild-001` (InstallShield).
+
+Po pierwszym buildzie obrazu:
+
+```powershell
+$versionId = '/subscriptions/426ea593-fd6e-40a0-a314-be2b3d6a2a06/resourceGroups/rg-ned-prd-mdp-001/providers/Microsoft.Compute/galleries/acg_ned_prd_mdp_001/images/win11-vs2022-ui-x64/versions/1.0.0'
+
+.\New-UiTestsManagedDevOpsPool-NedPrd.ps1 `
+  -GalleryImageVersionResourceId $versionId
+```
+
+Tworzy pulę (klon `mdp-ned-prd-winbuild-001` + `Interactive` + tylko alias `win11-vs2022-ui-x64`).
+
+Jeśli przez pomyłkę zarejestrowałeś obraz na `mdp-ned-prd-winbuild-001`, usuń go:
+
+```powershell
+.\Remove-ManagedDevOpsPoolImage.ps1 `
+  -ResourceGroupName 'rg-ned-prd-mdp-001' `
+  -PoolName 'mdp-ned-prd-winbuild-001' `
+  -ImageAlias 'win11-vs2022-ui-x64'
+```
 
 ### 3. Build obrazu (na packer VM — ten sam co InstallShield)
 
@@ -42,20 +62,15 @@ cd C:\Users\packeradmin\Downloads\runner-images\custom\win11-ui-tests\helpers
 
 Build trwa ~2–3 h (VS 2022 + Win11 client sysprep).
 
-### 4. Rejestracja na MDP + tryb Interactive
+### 4. Rejestracja na MDP (kolejne wersje obrazu)
+
+Gdy pula już istnieje:
 
 ```powershell
-$versionId = '/subscriptions/426ea593-fd6e-40a0-a314-be2b3d6a2a06/resourceGroups/rg-ned-prd-mdp-001/providers/Microsoft.Compute/galleries/acg_ned_prd_mdp_001/images/win11-vs2022-ui-x64/versions/1.0.0'
-
 .\Update-ManagedDevOpsPoolImage.ps1 `
   -ResourceGroupName 'rg-ned-prd-mdp-001' `
   -PoolName 'mdp-ned-prd-uittest-001' `
   -GalleryImageVersionResourceId $versionId
-
-.\Set-ManagedDevOpsPoolInteractiveMode.ps1 `
-  -ResourceGroupName 'rg-ned-prd-mdp-001' `
-  -PoolName 'mdp-ned-prd-uittest-001' `
-  -LogonType 'Interactive'
 ```
 
 ## Użycie w pipeline testowym
@@ -89,6 +104,8 @@ steps:
 | `images/windows/templates/build.windows-11-x64-ui-tests.pkr.hcl` | Lean Packer template |
 | `images/windows/toolsets/toolset-win-11-x64-ui-tests.json` | VS + .NET + NUnit toolset |
 | `helpers/GenerateResourcesAndImage.ps1` | `ImageType Windows11_x64_ui_tests` |
+| `helpers/New-UiTestsManagedDevOpsPool-NedPrd.ps1` | Jednorazowe utworzenie puli UI |
+| `helpers/Remove-ManagedDevOpsPoolImage.ps1` | Cofnięcie rejestracji aliasu na puli |
 | `context.md` | Pełny kontekst wdrożenia |
 
 See also [custom/installshield/context.md](../installshield/context.md) for shared NED PRD infrastructure (ACG, packer VM, MI).

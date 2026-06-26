@@ -1,18 +1,17 @@
 <#
 .SYNOPSIS
-    Enable or disable interactive desktop sessions on a Managed DevOps Pool (required for GUI / WinAppDriver tests).
+    Remove a gallery image alias from an existing Managed DevOps Pool.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
     [string] $ResourceGroupName,
 
-    [Parameter(Mandatory = $false)]
-    [string] $PoolName = 'mdp-ned-prd-uittest-001',
+    [Parameter(Mandatory = $true)]
+    [string] $PoolName,
 
-    [Parameter(Mandatory = $false)]
-    [ValidateSet('Interactive', 'Service')]
-    [string] $LogonType = 'Interactive',
+    [Parameter(Mandatory = $true)]
+    [string] $ImageAlias,
 
     [Parameter(Mandatory = $false)]
     [string] $ApiVersion = '2025-09-20'
@@ -36,15 +35,18 @@ if ($LASTEXITCODE -ne 0) {
 
 $pool = $poolJson | ConvertFrom-Json
 $fabric = $pool.properties.fabricProfile
-if (-not $fabric) {
-    throw "Pool '$PoolName' has no fabricProfile."
+if (-not $fabric -or -not $fabric.images) {
+    throw "Pool '$PoolName' has no fabricProfile.images."
 }
 
-if (-not $fabric.osProfile) {
-    $fabric | Add-Member -NotePropertyName osProfile -NotePropertyValue ([PSCustomObject]@{}) -Force
+$remaining = @($fabric.images | Where-Object { $_.aliases -notcontains $ImageAlias })
+if ($remaining.Count -eq $fabric.images.Count) {
+    Write-Host "Alias '$ImageAlias' not found on pool '$PoolName'. Nothing to remove."
+    return
 }
 
-$fabric.osProfile | Add-Member -NotePropertyName logonType -NotePropertyValue $LogonType -Force
+Write-Host "Removing image alias '$ImageAlias' from pool '$PoolName'..."
+$fabric.images = $remaining
 
 $putBody = [PSCustomObject]@{
     location   = $pool.location
@@ -60,8 +62,6 @@ if ($null -ne $pool.identity) {
 $tempFile = [System.IO.Path]::GetTempFileName() + '.json'
 try {
     $putBody | ConvertTo-Json -Depth 50 | Set-Content -Path $tempFile -Encoding UTF8
-
-    Write-Host "Setting fabricProfile.osProfile.logonType = '$LogonType' on pool '$PoolName'..."
     az rest --method put --url $poolUri --body "@$tempFile" --only-show-errors
     if ($LASTEXITCODE -ne 0) {
         throw "Pool update failed."
@@ -71,4 +71,5 @@ finally {
     Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Done. UI test pipelines require logonType '$LogonType'."
+Write-Host "Done. Remaining image aliases:"
+$remaining | ForEach-Object { Write-Host "  - $($_.aliases -join ', ')" }

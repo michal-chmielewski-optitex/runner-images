@@ -31,10 +31,10 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($subscriptionId)) {
 }
 
 $poolBaseUri = "https://management.azure.com/subscriptions/$subscriptionId/resourceGroups/$ResourceGroupName/providers/Microsoft.DevOpsInfrastructure/pools/$PoolName"
-$poolUri = "${poolBaseUri}?api-version=$ApiVersion"
+$poolUri = '{0}?api-version={1}' -f $poolBaseUri, $ApiVersion
 
 Write-Host "Loading pool '$PoolName' (REST api-version $ApiVersion)..."
-$poolJson = az rest --method get --url "$poolUri" --only-show-errors
+$poolJson = az rest --method get --url $poolUri --only-show-errors
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to load Managed DevOps Pool '$PoolName'."
 }
@@ -94,7 +94,7 @@ try {
     $putBody | ConvertTo-Json -Depth 50 | Set-Content -Path $tempFile -Encoding UTF8
 
     Write-Host "Updating fabricProfile on pool '$PoolName'..."
-    az rest --method put --url "$poolUri" --body "@$tempFile" --only-show-errors
+    az rest --method put --url $poolUri --body "@$tempFile" --only-show-errors
     if ($LASTEXITCODE -ne 0) {
         throw "Pool update failed."
     }

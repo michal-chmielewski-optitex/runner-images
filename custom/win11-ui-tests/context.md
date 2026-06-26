@@ -11,7 +11,7 @@ Obraz VM **Windows 11 Enterprise x64** z **VS 2022** (buildtoolset 1:1 jak barem
 | Warstwa | Odpowiedzialność |
 |---------|------------------|
 | **Obraz VM** | Win11 x64 + VS 2022 + .NET 8/9 + NUnit + WinAppDriver |
-| **MDP pool** | Osobna pula z `logonType: Interactive` |
+| **MDP pool** | Osobna pula `mdp-ned-prd-uittest-001` z `logonType: Interactive` |
 | **Pipeline** | Testy UI (pytest, WinAppDriver, pywinauto) |
 
 **Nie bake’ujemy:** PAT, agent ADO, sekrety testów.
@@ -101,17 +101,28 @@ cd custom\win11-ui-tests\helpers
 .\Build-Win11UiTestsImage-NedPrd.ps1 -ImageVersion '1.0.0' -UseManagedIdentity -RestrictToAgentIpAddress
 ```
 
-Po buildzie:
+Po buildzie (pierwszy raz — utwórz pulę):
+
+```powershell
+$versionId = '/subscriptions/426ea593-fd6e-40a0-a314-be2b3d6a2a06/resourceGroups/rg-ned-prd-mdp-001/providers/Microsoft.Compute/galleries/acg_ned_prd_mdp_001/images/win11-vs2022-ui-x64/versions/1.0.0'
+
+# Cofnij jeśli alias trafił na winbuild:
+.\Remove-ManagedDevOpsPoolImage.ps1 `
+  -ResourceGroupName 'rg-ned-prd-mdp-001' `
+  -PoolName 'mdp-ned-prd-winbuild-001' `
+  -ImageAlias 'win11-vs2022-ui-x64'
+
+.\New-UiTestsManagedDevOpsPool-NedPrd.ps1 `
+  -GalleryImageVersionResourceId $versionId
+```
+
+Kolejne wersje obrazu:
 
 ```powershell
 .\Update-ManagedDevOpsPoolImage.ps1 `
   -ResourceGroupName 'rg-ned-prd-mdp-001' `
   -PoolName 'mdp-ned-prd-uittest-001' `
-  -GalleryImageVersionResourceId '/subscriptions/426ea593-fd6e-40a0-a314-be2b3d6a2a06/resourceGroups/rg-ned-prd-mdp-001/providers/Microsoft.Compute/galleries/acg_ned_prd_mdp_001/images/win11-vs2022-ui-x64/versions/1.0.0'
-
-.\Set-ManagedDevOpsPoolInteractiveMode.ps1 `
-  -ResourceGroupName 'rg-ned-prd-mdp-001' `
-  -PoolName 'mdp-ned-prd-uittest-001'
+  -GalleryImageVersionResourceId $versionId
 ```
 
 ---
@@ -126,7 +137,7 @@ Po buildzie:
 
 ## Uwagi
 
-- **Osobna pula MDP** — `Interactive` wpływa na wszystkie joby na puli; nie używaj tej samej puli co InstallShield (headless).
+- **Osobna pula MDP** — `mdp-ned-prd-uittest-001` z `Interactive`; nie rejestruj `win11-vs2022-ui-x64` na `mdp-ned-prd-winbuild-001` (InstallShield headless).
 - **Copilot** jest zainstalowany jako komponent VS; aktywacja w runtime wymaga konta GitHub (poza scope obrazu).
 - **ARM64** — ten obraz jest wyłącznie x64.
 
