@@ -5,6 +5,9 @@ build {
   provisioner "powershell" {
     inline = [
       "New-Item -Path ${var.image_folder} -ItemType Directory -Force",
+      "$mountRoot = 'C:\\UiTestMount'",
+      "New-Item -Path $mountRoot -ItemType Directory -Force | Out-Null",
+      "if (-not (Get-PSDrive -Name D -ErrorAction SilentlyContinue)) { cmd /c \"subst D: $mountRoot\" }",
       "New-Item -Path ${var.temp_dir} -ItemType Directory -Force"
     ]
   }
