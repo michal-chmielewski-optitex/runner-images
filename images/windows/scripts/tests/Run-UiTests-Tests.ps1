@@ -16,6 +16,7 @@ $testPaths = @(
     'Git.Tests.ps1',
     'AzureCli.Tests.ps1',
     'Rclone.Tests.ps1',
+    'Zstd.Tests.ps1',
     'UiTestsWebDrivers.Tests.ps1',
     'AltTesterDesktop.Tests.ps1',
     'PowerShellModules.Tests.ps1'
