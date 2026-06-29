@@ -131,6 +131,7 @@ build {
       "${path.root}/../scripts/build/Install-AzureCli.ps1",
       "${path.root}/../scripts/build/Install-Rclone.ps1",
       "${path.root}/../scripts/build/Install-Zstd.ps1",
+      "${path.root}/../scripts/build/Install-Wmic.ps1",
       "${path.root}/../scripts/build/Install-UiTestsWebDrivers.ps1",
       "${path.root}/../scripts/build/Install-AltTesterDesktop.ps1",
       "${path.root}/../scripts/build/Install-WinAppDriver.ps1"
