@@ -44,11 +44,7 @@ function Get-AltTesterDesktopVersion {
     if (-not $exePath -or -not (Test-Path $exePath)) {
         return 'Not installed'
     }
-    $output = & $exePath -batchmode -nographics -version 2>&1 | Out-String
-    if ($output -match '(\d+\.\d+\.\d+)') {
-        return $matches[1]
-    }
-    return $output.Trim()
+    return [System.Diagnostics.FileVersionInfo]::GetVersionInfo($exePath).FileVersion
 }
 
 function Get-NUnitConsoleVersion {
