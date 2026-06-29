@@ -11,7 +11,7 @@ if ($state -and $state.State -eq 'Installed') {
 }
 else {
     Write-Host "Installing WMIC capability ($capabilityName)..."
-    $result = Add-WindowsCapability -Online -Name $capabilityName -NoRestart
+    $result = Add-WindowsCapability -Online -Name $capabilityName
     if ($result.RestartNeeded) {
         Write-Host 'WMIC capability installed; restart may be required before wmic.exe is available.'
     }
