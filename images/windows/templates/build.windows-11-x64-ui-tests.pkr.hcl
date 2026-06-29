@@ -131,7 +131,6 @@ build {
       "${path.root}/../scripts/build/Install-AzureCli.ps1",
       "${path.root}/../scripts/build/Install-Rclone.ps1",
       "${path.root}/../scripts/build/Install-Zstd.ps1",
-      "${path.root}/../scripts/build/Install-Wmic.ps1",
       "${path.root}/../scripts/build/Install-UiTestsWebDrivers.ps1",
       "${path.root}/../scripts/build/Install-AltTesterDesktop.ps1",
       "${path.root}/../scripts/build/Install-WinAppDriver.ps1"
@@ -144,6 +143,7 @@ build {
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_INIT_D_DRIVE=1"]
     scripts           = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
+      "${path.root}/../scripts/build/Install-Wmic.ps1",
       "${path.root}/../scripts/build/Install-WindowsUpdates.ps1",
       "${path.root}/../scripts/build/Configure-DynamicPort.ps1",
       "${path.root}/../scripts/build/Configure-GDIProcessHandleQuota.ps1",

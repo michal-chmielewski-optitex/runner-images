@@ -5,17 +5,22 @@
 
 $capabilityName = 'WMIC~~~~'
 
-$installed = dism /Online /Get-Capabilities /Format:Table | Out-String
-if ($installed -match 'WMIC~~~~.*Installed') {
+$state = Get-WindowsCapability -Online -Name $capabilityName -ErrorAction SilentlyContinue
+if ($state -and $state.State -eq 'Installed') {
     Write-Host 'WMIC capability is already installed.'
 }
 else {
     Write-Host "Installing WMIC capability ($capabilityName)..."
-    dism /Online /Add-Capability /CapabilityName:$capabilityName /NoRestart | Out-String | Write-Host
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to install WMIC capability. DISM exit code: $LASTEXITCODE"
+    $result = Add-WindowsCapability -Online -Name $capabilityName -NoRestart
+    if ($result.RestartNeeded) {
+        Write-Host 'WMIC capability installed; restart may be required before wmic.exe is available.'
+    }
+    if ($result.State -ne 'Installed') {
+        throw "Failed to install WMIC capability. State: $($result.State)"
     }
 }
+
+Update-Environment
 
 if (-not (Get-Command wmic.exe -ErrorAction SilentlyContinue)) {
     throw 'wmic.exe is not available after WMIC capability install.'
