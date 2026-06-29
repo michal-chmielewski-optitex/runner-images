@@ -5,6 +5,6 @@
 
 Import-Module ImageHelpers -DisableNameChecking -Force
 
-if ($env:TEMP_DIR -like 'D:\*' -and -not (Get-PSDrive -Name D -ErrorAction SilentlyContinue)) {
+if ($env:UI_TESTS_IMAGE -eq '1') {
     & "$PSScriptRoot\Initialize-UiTestsDriveLetter.ps1"
 }
