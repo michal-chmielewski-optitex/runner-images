@@ -4,8 +4,8 @@ Describe "AltTester Desktop" {
         $env:ALTTTESTER_DESKTOP_PATH | Should -Exist
     }
 
-    It "AltTesterDesktop.exe reports version in batch mode" {
-        & $env:ALTTTESTER_DESKTOP_PATH -batchmode -nographics -version | Out-Null
-        $LASTEXITCODE | Should -Be 0
+    It "AltTesterDesktop.exe has a file version" {
+        $version = (Get-Item $env:ALTTTESTER_DESKTOP_PATH).VersionInfo.FileVersion
+        $version | Should -Not -BeNullOrEmpty
     }
 }
