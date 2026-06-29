@@ -109,6 +109,7 @@ steps:
 - NUnit Console 3.19.2
 - WinAppDriver + Developer Mode
 - Git, NuGet CLI, vswhere
+- Azure CLI
 
 ## Pliki
 
