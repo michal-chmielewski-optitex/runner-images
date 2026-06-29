@@ -5,7 +5,6 @@
 
 Import-Module ImageHelpers -DisableNameChecking -Force
 
-if ($env:UI_TESTS_IMAGE -eq '1') {
-    $initScript = Join-Path (Get-Module ImageHelpers).ModuleBase 'Initialize-UiTestsDriveLetter.ps1'
-    & $initScript
+if ($env:UI_TESTS_INIT_D_DRIVE -eq '1') {
+    & (Join-Path (Get-Module ImageHelpers).ModuleBase 'Initialize-UiTestsDriveLetter.ps1')
 }

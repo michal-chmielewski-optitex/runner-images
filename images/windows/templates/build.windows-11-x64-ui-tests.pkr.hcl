@@ -71,7 +71,7 @@ build {
   }
 
   provisioner "powershell" {
-    environment_vars = ["IMAGE_VERSION=${var.image_version}", "IMAGE_OS=${var.image_os}", "AGENT_TOOLSDIRECTORY=${var.agent_tools_directory}", "IMAGEDATA_FILE=${var.imagedata_file}", "IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_IMAGE=1"]
+    environment_vars = ["IMAGE_VERSION=${var.image_version}", "IMAGE_OS=${var.image_os}", "AGENT_TOOLSDIRECTORY=${var.agent_tools_directory}", "IMAGEDATA_FILE=${var.imagedata_file}", "IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp"]
     execution_policy = "unrestricted"
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
@@ -91,7 +91,7 @@ build {
   }
 
   provisioner "powershell" {
-    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_IMAGE=1"]
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp"]
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-PowershellCore.ps1"
@@ -103,9 +103,10 @@ build {
   }
 
   provisioner "powershell" {
+    pause_before      = "2m0s"
     elevated_password = "${var.install_password}"
     elevated_user     = "${var.install_user}"
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_IMAGE=1"]
+    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp"]
     scripts           = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-VisualStudio-UiTests.ps1"
@@ -120,7 +121,7 @@ build {
 
   provisioner "powershell" {
     pause_before     = "2m0s"
-    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_IMAGE=1", "IMAGE_UI_TESTS_BUILD=true"]
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_INIT_D_DRIVE=1", "IMAGE_UI_TESTS_BUILD=true"]
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-ChocolateyPackages.ps1",
@@ -139,7 +140,7 @@ build {
   provisioner "powershell" {
     elevated_password = "${var.install_password}"
     elevated_user     = "${var.install_user}"
-    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_IMAGE=1"]
+    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_INIT_D_DRIVE=1"]
     scripts           = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-WindowsUpdates.ps1",
@@ -166,7 +167,7 @@ build {
 
   provisioner "powershell" {
     pause_before     = "2m0s"
-    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_IMAGE=1"]
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_INIT_D_DRIVE=1"]
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1",
@@ -201,7 +202,7 @@ build {
   }
 
   provisioner "powershell" {
-    environment_vars = ["INSTALL_USER=${var.install_user}", "UI_TESTS_IMAGE=1", "TEMP_DIR=C:\\temp"]
+    environment_vars = ["INSTALL_USER=${var.install_user}", "UI_TESTS_INIT_D_DRIVE=1", "TEMP_DIR=C:\\temp"]
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-NativeImages-UiTests.ps1",
