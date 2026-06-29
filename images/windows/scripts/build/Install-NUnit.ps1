@@ -53,4 +53,18 @@ else {
 
 Add-MachinePathItem $consoleExe.DirectoryName
 
+$agentsPath = Join-Path $consoleExe.DirectoryName 'agents'
+if (Test-Path $agentsPath) {
+    Add-MachinePathItem $agentsPath
+}
+
+$nunitBinPath = Join-Path $nunitVersionPath 'bin'
+if (Test-Path $nunitBinPath) {
+    Add-MachinePathItem $nunitBinPath
+}
+
+[Environment]::SetEnvironmentVariable('NUNIT_HOME', $nunitVersionPath, 'Machine')
+[Environment]::SetEnvironmentVariable('NUNIT_CONSOLE_PATH', $consoleExe.FullName, 'Machine')
+Update-Environment
+
 Invoke-PesterTests -TestFile "NUnit"

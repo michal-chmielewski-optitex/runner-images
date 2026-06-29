@@ -12,6 +12,45 @@ Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Helpers.psm1") -DisableNa
 Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Tools.psm1") -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot "SoftwareReport.VisualStudio.psm1") -DisableNameChecking
 
+function Get-UiTestsChromeVersion {
+    $chromeExe = 'D:\WebDriver\chrome-win64\chrome.exe'
+    if (-not (Test-Path $chromeExe)) {
+        return 'Not installed'
+    }
+    return [System.Diagnostics.FileVersionInfo]::GetVersionInfo($chromeExe).ProductVersion
+}
+
+function Get-UiTestsChromeDriverVersion {
+    $versionFile = 'D:\WebDriver\chromedriver-win64\versioninfo.txt'
+    if (Test-Path $versionFile) {
+        return (Get-Content $versionFile -Raw).Trim()
+    }
+    $driverExe = 'D:\WebDriver\chromedriver-win64\chromedriver.exe'
+    if (-not (Test-Path $driverExe)) {
+        return 'Not installed'
+    }
+    return (& $driverExe --version).Trim().Replace('ChromeDriver ', '')
+}
+
+function Get-RcloneVersion {
+    if (-not (Get-Command rclone -ErrorAction SilentlyContinue)) {
+        return 'Not installed'
+    }
+    return (rclone version | Select-Object -First 1).Replace('rclone ', '').Trim()
+}
+
+function Get-AltTesterDesktopVersion {
+    $exePath = $env:ALTTTESTER_DESKTOP_PATH
+    if (-not $exePath -or -not (Test-Path $exePath)) {
+        return 'Not installed'
+    }
+    $output = & $exePath -batchmode -nographics -version 2>&1 | Out-String
+    if ($output -match '(\d+\.\d+\.\d+)') {
+        return $matches[1]
+    }
+    return $output.Trim()
+}
+
 function Get-NUnitConsoleVersion {
     $consoleExe = Get-ChildItem -Path "C:\Program Files\NUnit" -Filter "nunit3-console.exe" -Recurse -ErrorAction SilentlyContinue |
         Select-Object -First 1
@@ -45,7 +84,11 @@ $tools = $installedSoftware.AddHeader("Tools")
 $tools.AddToolVersion("Git", $(Get-GitVersion))
 $tools.AddToolVersion("Git LFS", $(Get-GitLFSVersion))
 $tools.AddToolVersion("Azure CLI", $(Get-AzureCLIVersion))
+$tools.AddToolVersion("Rclone", $(Get-RcloneVersion))
 $tools.AddToolVersion("NUnit Console", $(Get-NUnitConsoleVersion))
+$tools.AddToolVersion("Google Chrome (portable)", $(Get-UiTestsChromeVersion))
+$tools.AddToolVersion("Chrome Driver", $(Get-UiTestsChromeDriverVersion))
+$tools.AddToolVersion("AltTester Desktop", $(Get-AltTesterDesktopVersion))
 $tools.AddToolVersion("VSWhere", $(Get-VSWhereVersion))
 $tools.AddToolVersion("WinAppDriver", $(Get-WinAppDriver))
 

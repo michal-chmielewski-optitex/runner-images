@@ -142,6 +142,8 @@ Kolejne wersje obrazu:
 
 - **Osobna pula MDP** — `mdp-ned-prd-uittest-001` z `Interactive`; nie rejestruj `win11-vs2022-ui-x64` na `mdp-ned-prd-winbuild-001` (InstallShield headless).
 - **Copilot** jest zainstalowany jako komponent VS; aktywacja w runtime wymaga konta GitHub (poza scope obrazu).
+- **NUnit** — `nunit3-console.exe` na PATH (pipeline ma jeszcze hardcoded ścieżkę do poprawy)
+- **AltTester** — `C:\AltTester\AltTesterDesktop.exe`; start serwera: `-batchmode -port 13000 -license <KEY>`
 - **ARM64** — ten obraz jest wyłącznie x64.
 
 ---

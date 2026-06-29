@@ -25,4 +25,8 @@ Describe "NUnit" {
         $script:nunitConsolePath | Should -Exist
         Get-Command nunit3-console.exe -ErrorAction SilentlyContinue | Should -Not -BeNullOrEmpty
     }
+
+    It "NUNIT_CONSOLE_PATH points to nunit3-console.exe" {
+        $env:NUNIT_CONSOLE_PATH | Should -Be $script:nunitConsolePath
+    }
 }

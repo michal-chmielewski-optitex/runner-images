@@ -128,6 +128,9 @@ build {
       "${path.root}/../scripts/build/Install-NUnit.ps1",
       "${path.root}/../scripts/build/Install-Git.ps1",
       "${path.root}/../scripts/build/Install-AzureCli.ps1",
+      "${path.root}/../scripts/build/Install-Rclone.ps1",
+      "${path.root}/../scripts/build/Install-UiTestsWebDrivers.ps1",
+      "${path.root}/../scripts/build/Install-AltTesterDesktop.ps1",
       "${path.root}/../scripts/build/Install-WinAppDriver.ps1"
     ]
   }

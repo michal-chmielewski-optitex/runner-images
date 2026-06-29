@@ -15,6 +15,9 @@ $testPaths = @(
     'ChocoPackages-UiTests.Tests.ps1',
     'Git.Tests.ps1',
     'AzureCli.Tests.ps1',
+    'Rclone.Tests.ps1',
+    'UiTestsWebDrivers.Tests.ps1',
+    'AltTesterDesktop.Tests.ps1',
     'PowerShellModules.Tests.ps1'
 ) | ForEach-Object { Join-Path 'C:\image\tests' $_ }
 

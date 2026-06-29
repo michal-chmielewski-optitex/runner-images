@@ -106,10 +106,13 @@ steps:
 - Windows 11 Enterprise x64 (`MicrosoftWindowsDesktop:windows-11:win11-25h2-ent`)
 - VS 2022 Enterprise — workload **.NET desktop development** + komponenty jak na baremetal (Copilot, Blend, Live Share, ML.NET Model Builder, EF6, .NET 8/9 runtime, .NET Framework 4.7.2–4.8.1, JIT debugger, profiling, IntelliCode)
 - .NET SDK 8.0 + 9.0
-- NUnit Console 3.19.2
+- NUnit Console 3.19.2 (`nunit3-console.exe` on PATH)
 - WinAppDriver + Developer Mode
 - Git, NuGet CLI, vswhere
 - Azure CLI
+- rclone
+- Chrome + chromedriver (`D:\WebDriver\chrome-win64`, `D:\WebDriver\chromedriver-win64`)
+- AltTester Desktop (`C:\AltTester\AltTesterDesktop.exe` — wymaga `ALTTTESTER_LICENSE` do startu serwera na porcie 13000)
 
 ## Pliki
 
