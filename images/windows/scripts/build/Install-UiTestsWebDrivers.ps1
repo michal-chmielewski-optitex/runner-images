@@ -43,7 +43,6 @@ Add-MachinePathItem $driverDir
 Add-MachinePathItem $chromeDir
 Update-Environment
 
-$helpersRoot = (Get-Module ImageHelpers).ModuleBase
-& (Join-Path $helpersRoot 'Configure-UiTests-ChromePolicy.ps1')
+Invoke-ImageHelperScript -ScriptName 'Configure-UiTests-ChromePolicy.ps1'
 
 Invoke-PesterTests -TestFile 'UiTestsWebDrivers'

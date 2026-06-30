@@ -141,6 +141,7 @@ Kolejne wersje obrazu:
 ## Uwagi
 
 - **Osobna pula MDP** — `mdp-ned-prd-uittest-001` z `Interactive`; nie rejestruj `win11-vs2022-ui-x64` na `mdp-ned-prd-winbuild-001` (InstallShield headless).
+- **Skrypty Packer vs helpery** — provisionery w `scripts/build/` uruchamiają się z `C:\Windows\Temp`; **nie używaj** `$PSScriptRoot` do ładowania plików z `scripts/helpers/`. Helpery leżą obok `ImageHelpers.psm1` — używaj `Get-ImageHelperScriptPath` / `Invoke-ImageHelperScript` z modułu ImageHelpers. Skrypty post-gen w `C:\post-generation` mogą używać `$PSScriptRoot`, o ile plik pomocniczy jest skopiowany tam podczas buildu (np. `UiTests-ProvisionedPackages.ps1`, `UiTests-DriveLetterMapping.ps1`).
 - **Copilot** jest zainstalowany jako komponent VS; aktywacja w runtime wymaga konta GitHub (poza scope obrazu).
 - **NUnit** — `nunit3-console.exe` na PATH (pipeline ma jeszcze hardcoded ścieżkę do poprawy)
 - **AltTester** — `C:\AltTester\AltTesterDesktop.exe`; start serwera: `-batchmode -port 13000 -license <KEY>`

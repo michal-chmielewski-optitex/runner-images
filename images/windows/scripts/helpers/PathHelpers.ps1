@@ -1,4 +1,36 @@
 
+function Get-ImageHelperScriptPath {
+    <#
+    .SYNOPSIS
+        Resolves a helper script path inside the ImageHelpers module directory.
+
+    .DESCRIPTION
+        Packer copies build scripts to C:\Windows\Temp, so $PSScriptRoot in build/*.ps1
+        must not be used to locate sibling helper scripts. Helper scripts live next to
+        ImageHelpers.psm1 and are resolved via this function instead.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ScriptName
+    )
+
+    $scriptPath = Join-Path $PSScriptRoot $ScriptName
+    if (-not (Test-Path $scriptPath)) {
+        throw "Image helper script not found: $scriptPath"
+    }
+
+    return $scriptPath
+}
+
+function Invoke-ImageHelperScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ScriptName
+    )
+
+    & (Get-ImageHelperScriptPath -ScriptName $ScriptName)
+}
+
 function Mount-RegistryHive {
     <#
     .SYNOPSIS

@@ -50,6 +50,8 @@ Export-ModuleMember -Function @(
     'Dismount-RegistryHive'
     'Add-MachinePathItem'
     'Add-DefaultPathItem'
+    'Get-ImageHelperScriptPath'
+    'Invoke-ImageHelperScript'
 )
 
 . $PSScriptRoot\VisualStudioHelpers.ps1
