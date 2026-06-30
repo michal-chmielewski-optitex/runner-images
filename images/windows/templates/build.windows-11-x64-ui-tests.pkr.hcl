@@ -210,7 +210,8 @@ build {
       "${path.root}/../scripts/build/Install-NativeImages-UiTests.ps1",
       "${path.root}/../scripts/build/Configure-System.ps1",
       "${path.root}/../scripts/build/Configure-User.ps1",
-      "${path.root}/../scripts/build/Post-Build-Validation.ps1"
+      "${path.root}/../scripts/build/Post-Build-Validation.ps1",
+      "${path.root}/../scripts/build/Prepare-UiTestsSysprep.ps1"
     ]
     skip_clean       = true
   }
@@ -220,11 +221,7 @@ build {
   }
 
   provisioner "powershell" {
-    inline = [
-      "if( Test-Path $env:SystemRoot\\System32\\Sysprep\\unattend.xml ){ rm $env:SystemRoot\\System32\\Sysprep\\unattend.xml -Force}",
-      "& $env:SystemRoot\\System32\\Sysprep\\Sysprep.exe /oobe /generalize /mode:vm /quiet /quit",
-      "while($true) { $imageState = Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Setup\\State | Select ImageState; if($imageState.ImageState -ne 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { Write-Output $imageState.ImageState; Start-Sleep -s 10 } else { break } }"
-    ]
+    scripts = ["${path.root}/../scripts/build/Import-ImageHelpers.ps1", "${path.root}/../scripts/build/Invoke-UiTestsSysprep.ps1"]
   }
 
 }
