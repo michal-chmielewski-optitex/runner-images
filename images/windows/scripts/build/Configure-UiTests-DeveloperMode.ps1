@@ -15,7 +15,7 @@ Mount-RegistryHive `
     -FileName 'C:\Users\Default\NTUSER.DAT' `
     -SubKey 'HKLM\DEFAULT'
 
-$defaultDevPath = 'HKLM\DEFAULT\Software\Microsoft\Windows\CurrentVersion\AppModelUnlock'
+$defaultDevPath = 'HKLM:\DEFAULT\Software\Microsoft\Windows\CurrentVersion\AppModelUnlock'
 if (-not (Test-Path -Path $defaultDevPath)) {
     New-Item -Path $defaultDevPath -ItemType Directory -Force | Out-Null
 }
