@@ -3,7 +3,8 @@
 ##  Desc:  Disable Win11 "Get Started" / welcome experience on interactive agents
 ################################################################################
 
-. "$PSScriptRoot\UiTests-ProvisionedPackages.ps1"
+$helpersRoot = (Get-Module ImageHelpers).ModuleBase
+. (Join-Path $helpersRoot 'UiTests-ProvisionedPackages.ps1')
 
 function Set-UiTestsStartupRegistry {
     param([string]$RootKey)
@@ -58,7 +59,7 @@ Dismount-RegistryHive 'HKLM\DEFAULT'
 
 Remove-UiTestsProvisionedPackages
 
-Copy-Item -Path "$PSScriptRoot\UiTests-ProvisionedPackages.ps1" -Destination 'C:\post-generation\' -Force
+Copy-Item -Path (Join-Path $helpersRoot 'UiTests-ProvisionedPackages.ps1') -Destination 'C:\post-generation\' -Force
 
 Write-Host 'Disabled Win11 startup experience and removed consumer AppX packages.'
 

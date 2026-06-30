@@ -43,6 +43,7 @@ Add-MachinePathItem $driverDir
 Add-MachinePathItem $chromeDir
 Update-Environment
 
-. "$PSScriptRoot\Configure-UiTests-ChromePolicy.ps1"
+$helpersRoot = (Get-Module ImageHelpers).ModuleBase
+& (Join-Path $helpersRoot 'Configure-UiTests-ChromePolicy.ps1')
 
 Invoke-PesterTests -TestFile 'UiTestsWebDrivers'
