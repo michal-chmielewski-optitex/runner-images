@@ -11,6 +11,8 @@ $testPaths = @(
     'VisualStudio.Tests.ps1',
     'NUnit.Tests.ps1',
     'WinAppDriver.Tests.ps1',
+    'UiTestsDeveloperMode.Tests.ps1',
+    'UiTestsStartupExperience.Tests.ps1',
     'DotnetSDK.Tests.ps1',
     'ChocoPackages-UiTests.Tests.ps1',
     'Git.Tests.ps1',
