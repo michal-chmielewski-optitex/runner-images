@@ -1,6 +1,6 @@
 ################################################################################
 ##  File:  Disable-UiTestsStartupExperience.ps1 (post-generation)
-##  Desc:  Remove Get Started for the interactive agent session on first boot
+##  Desc:  Remove consumer apps and suppress welcome UI on interactive agent boot
 ################################################################################
 
 if (-not (Test-Path 'C:\imagedata.json')) {
@@ -12,16 +12,10 @@ if ($imageData -notmatch 'windows-11-x64-ui-tests') {
     return
 }
 
-$packagesToRemove = @(
-    'Microsoft.Getstarted'
-    'MicrosoftWindows.Client.OOBE'
-)
-
-foreach ($displayName in $packagesToRemove) {
-    Get-AppxPackage -AllUsers -Name $displayName -ErrorAction SilentlyContinue | ForEach-Object {
-        Write-Host "Removing installed package for current users: $($_.Name)"
-        Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue | Out-Null
-    }
+$packagesScript = Join-Path $PSScriptRoot 'UiTests-ProvisionedPackages.ps1'
+if (Test-Path $packagesScript) {
+    . $packagesScript
+    Remove-UiTestsInstalledPackagesForAllUsers
 }
 
 $cdmPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'

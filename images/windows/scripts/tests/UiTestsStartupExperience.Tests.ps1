@@ -19,6 +19,24 @@ Describe "UiTests startup experience" {
         @($remaining).Count | Should -Be 0
     }
 
+    It "Consumer AppX packages are not provisioned" {
+        $blocked = @(
+            'Microsoft.OutlookForWindows'
+            'MicrosoftTeams'
+            'MSTeams'
+            'Microsoft.MicrosoftOfficeHub'
+            'Clipchamp.Clipchamp'
+            'Microsoft.BingNews'
+        )
+        $remaining = Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -in $blocked }
+        @($remaining).Count | Should -Be 0
+    }
+
+    It "Windows Copilot is disabled by policy" {
+        $path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot'
+        (Get-ItemProperty -Path $path).TurnOffWindowsCopilot | Should -Be 1
+    }
+
     It "Cloud consumer features policy is disabled" {
         $path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
         (Get-ItemProperty -Path $path).DisableWindowsConsumerFeatures | Should -Be 1

@@ -3,6 +3,8 @@
 ##  Desc:  Disable Win11 "Get Started" / welcome experience on interactive agents
 ################################################################################
 
+. "$PSScriptRoot\UiTests-ProvisionedPackages.ps1"
+
 function Set-UiTestsStartupRegistry {
     param([string]$RootKey)
 
@@ -12,6 +14,12 @@ function Set-UiTestsStartupRegistry {
     }
     New-ItemProperty -Path $cloudContentPath -Name DisableWindowsConsumerFeatures -PropertyType DWORD -Value 1 -Force | Out-Null
     New-ItemProperty -Path $cloudContentPath -Name DisableCloudOptimizedContent -PropertyType DWORD -Value 1 -Force | Out-Null
+
+    $copilotPolicyPath = "$RootKey\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot"
+    if (-not (Test-Path $copilotPolicyPath)) {
+        New-Item -Path $copilotPolicyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $copilotPolicyPath -Name TurnOffWindowsCopilot -PropertyType DWORD -Value 1 -Force | Out-Null
 
     $oobePath = "$RootKey\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE"
     if (-not (Test-Path $oobePath)) {
@@ -48,20 +56,10 @@ Set-UiTestsStartupRegistry -RootKey 'HKLM:\DEFAULT'
 
 Dismount-RegistryHive 'HKLM\DEFAULT'
 
-$packagesToRemove = @(
-    'Microsoft.Getstarted'
-    'MicrosoftWindows.Client.OOBE'
-)
+Remove-UiTestsProvisionedPackages
 
-foreach ($displayName in $packagesToRemove) {
-    Get-AppxProvisionedPackage -Online |
-        Where-Object { $_.DisplayName -eq $displayName } |
-        ForEach-Object {
-            Write-Host "Removing provisioned package: $($_.DisplayName)"
-            Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName | Out-Null
-        }
-}
+Copy-Item -Path "$PSScriptRoot\UiTests-ProvisionedPackages.ps1" -Destination 'C:\post-generation\' -Force
 
-Write-Host 'Disabled Win11 startup / Get Started experience for new users.'
+Write-Host 'Disabled Win11 startup experience and removed consumer AppX packages.'
 
 Invoke-PesterTests -TestFile 'UiTestsStartupExperience'
