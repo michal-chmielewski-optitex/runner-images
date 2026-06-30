@@ -52,6 +52,8 @@ Export-ModuleMember -Function @(
     'Add-DefaultPathItem'
     'Get-ImageHelperScriptPath'
     'Invoke-ImageHelperScript'
+    'Set-RegistryDwordViaRegExe'
+    'Set-RegistryKeyDword'
 )
 
 . $PSScriptRoot\VisualStudioHelpers.ps1

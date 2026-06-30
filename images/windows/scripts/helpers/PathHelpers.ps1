@@ -31,6 +31,72 @@ function Invoke-ImageHelperScript {
     & (Get-ImageHelperScriptPath -ScriptName $ScriptName)
 }
 
+function ConvertTo-RegExeKeyPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $KeyPath
+    )
+
+    if ($KeyPath -match '^(.):\\') {
+        return ($KeyPath -replace '^(.):\\', '$1\')
+    }
+
+    return $KeyPath
+}
+
+function Set-RegistryDwordViaRegExe {
+    <#
+    .SYNOPSIS
+        Sets a REG_DWORD value using reg.exe (safe for mounted registry hives).
+
+    .DESCRIPTION
+        PowerShell registry cmdlets can keep hive handles open and block reg unload.
+        Use this helper when writing to HKLM\DEFAULT after Mount-RegistryHive.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $KeyPath,
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [int] $Value
+    )
+
+    $regKeyPath = ConvertTo-RegExeKeyPath -KeyPath $KeyPath
+    $ensureResult = reg add $regKeyPath /f *>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to ensure registry key ${regKeyPath}: $ensureResult"
+    }
+
+    $result = reg add $regKeyPath /v $Name /t REG_DWORD /d $Value /f *>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to set ${regKeyPath}\${Name}: $result"
+    }
+}
+
+function Set-RegistryKeyDword {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $KeyPath,
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [int] $Value,
+        [switch] $UseRegExe
+    )
+
+    if ($UseRegExe) {
+        Set-RegistryDwordViaRegExe -KeyPath $KeyPath -Name $Name -Value $Value
+        return
+    }
+
+    if (-not (Test-Path $KeyPath)) {
+        New-Item -Path $KeyPath -Force | Out-Null
+    }
+
+    New-ItemProperty -Path $KeyPath -Name $Name -PropertyType DWORD -Value $Value -Force | Out-Null
+}
+
 function Mount-RegistryHive {
     <#
     .SYNOPSIS
@@ -91,11 +157,26 @@ function Dismount-RegistryHive {
         return
     }
 
-    $result = reg unload $SubKey *>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Failed to unload hive: $result"
-        exit 1
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
+
+    $maxAttempts = 5
+    $result = $null
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        $result = reg unload $SubKey *>&1
+        if ($LASTEXITCODE -eq 0) {
+            return
+        }
+
+        if ($attempt -lt $maxAttempts) {
+            Write-Host "Failed to unload hive (attempt ${attempt}/${maxAttempts}): $result. Retrying..."
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+            Start-Sleep -Seconds 2
+        }
     }
+
+    throw "Failed to unload hive ${SubKey}: $result"
 }
 
 function Add-MachinePathItem {

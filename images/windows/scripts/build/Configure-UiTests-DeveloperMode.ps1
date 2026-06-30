@@ -4,24 +4,16 @@
 ################################################################################
 
 $registryKeyPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
-if (-not (Test-Path -Path $registryKeyPath)) {
-    New-Item -Path $registryKeyPath -ItemType Directory -Force | Out-Null
-}
-
-New-ItemProperty -Path $registryKeyPath -Name AllowDevelopmentWithoutDevLicense -PropertyType DWORD -Value 1 -Force | Out-Null
-New-ItemProperty -Path $registryKeyPath -Name AllowAllTrustedApps -PropertyType DWORD -Value 1 -Force | Out-Null
+Set-RegistryKeyDword -KeyPath $registryKeyPath -Name AllowDevelopmentWithoutDevLicense -Value 1
+Set-RegistryKeyDword -KeyPath $registryKeyPath -Name AllowAllTrustedApps -Value 1
 
 Mount-RegistryHive `
     -FileName 'C:\Users\Default\NTUSER.DAT' `
     -SubKey 'HKLM\DEFAULT'
 
 $defaultDevPath = 'HKLM:\DEFAULT\Software\Microsoft\Windows\CurrentVersion\AppModelUnlock'
-if (-not (Test-Path -Path $defaultDevPath)) {
-    New-Item -Path $defaultDevPath -ItemType Directory -Force | Out-Null
-}
-
-New-ItemProperty -Path $defaultDevPath -Name AllowDevelopmentWithoutDevLicense -PropertyType DWORD -Value 1 -Force | Out-Null
-New-ItemProperty -Path $defaultDevPath -Name AllowAllTrustedApps -PropertyType DWORD -Value 1 -Force | Out-Null
+Set-RegistryKeyDword -KeyPath $defaultDevPath -Name AllowDevelopmentWithoutDevLicense -Value 1 -UseRegExe
+Set-RegistryKeyDword -KeyPath $defaultDevPath -Name AllowAllTrustedApps -Value 1 -UseRegExe
 
 Dismount-RegistryHive 'HKLM\DEFAULT'
 

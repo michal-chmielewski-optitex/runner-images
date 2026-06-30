@@ -8,29 +8,26 @@
 function Set-UiTestsStartupRegistry {
     param([string]$RootKey)
 
-    $cloudContentPath = "$RootKey\SOFTWARE\Policies\Microsoft\Windows\CloudContent"
-    if (-not (Test-Path $cloudContentPath)) {
-        New-Item -Path $cloudContentPath -Force | Out-Null
-    }
-    New-ItemProperty -Path $cloudContentPath -Name DisableWindowsConsumerFeatures -PropertyType DWORD -Value 1 -Force | Out-Null
-    New-ItemProperty -Path $cloudContentPath -Name DisableCloudOptimizedContent -PropertyType DWORD -Value 1 -Force | Out-Null
+    $useRegExe = $RootKey -eq 'HKLM:\DEFAULT'
 
-    $copilotPolicyPath = "$RootKey\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot"
-    if (-not (Test-Path $copilotPolicyPath)) {
-        New-Item -Path $copilotPolicyPath -Force | Out-Null
-    }
-    New-ItemProperty -Path $copilotPolicyPath -Name TurnOffWindowsCopilot -PropertyType DWORD -Value 1 -Force | Out-Null
+    function Set-Dword {
+        param(
+            [Parameter(Mandatory = $true)][string] $RelativePath,
+            [Parameter(Mandatory = $true)][string] $Name,
+            [Parameter(Mandatory = $true)][int] $Value
+        )
 
-    $oobePath = "$RootKey\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE"
-    if (-not (Test-Path $oobePath)) {
-        New-Item -Path $oobePath -Force | Out-Null
+        Set-RegistryKeyDword `
+            -KeyPath "$RootKey\$RelativePath" `
+            -Name $Name `
+            -Value $Value `
+            -UseRegExe:$useRegExe
     }
-    New-ItemProperty -Path $oobePath -Name DisablePrivacyExperience -PropertyType DWORD -Value 1 -Force | Out-Null
 
-    $cdmPath = "$RootKey\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
-    if (-not (Test-Path $cdmPath)) {
-        New-Item -Path $cdmPath -Force | Out-Null
-    }
+    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableWindowsConsumerFeatures -Value 1
+    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableCloudOptimizedContent -Value 1
+    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -Name TurnOffWindowsCopilot -Value 1
+    Set-Dword -RelativePath 'SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE' -Name DisablePrivacyExperience -Value 1
 
     foreach ($name in @(
             'SubscribedContent-310093Enabled'
@@ -42,7 +39,7 @@ function Set-UiTestsStartupRegistry {
             'SoftLandingEnabled'
             'SystemPaneSuggestionsEnabled'
         )) {
-        New-ItemProperty -Path $cdmPath -Name $name -PropertyType DWORD -Value 0 -Force | Out-Null
+        Set-Dword -RelativePath 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager' -Name $name -Value 0
     }
 }
 
