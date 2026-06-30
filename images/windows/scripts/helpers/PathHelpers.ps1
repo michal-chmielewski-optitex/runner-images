@@ -37,8 +37,8 @@ function ConvertTo-RegExeKeyPath {
         [string] $KeyPath
     )
 
-    if ($KeyPath -match '^(.):\\') {
-        return ($KeyPath -replace '^(.):\\', '$1\')
+    if ($KeyPath -match '^[^:]+:\\') {
+        return ($KeyPath -replace '^([^:]+):\\', '$1\')
     }
 
     return $KeyPath
