@@ -32,13 +32,40 @@ $script:UiTestsProvisionedPackagesToRemove = @(
     'Microsoft.XboxSpeechToTextOverlay'
 )
 
+$script:UiTestsSysprepBlockerPackages = @(
+    'Microsoft.WidgetsPlatformRuntime'
+    'MicrosoftWindows.Client.WebExperience'
+    'Microsoft.StartExperiencesApp'
+)
+
+function Remove-UiTestsAppxPackageSafely {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $PackageFullName
+    )
+
+    try {
+        Remove-AppxPackage -Package $PackageFullName -AllUsers -ErrorAction Stop | Out-Null
+        Write-Host "Removed AppX package: $PackageFullName"
+    }
+    catch {
+        Write-Warning "Could not remove AppX package ${PackageFullName}: $($_.Exception.Message)"
+    }
+}
+
 function Remove-UiTestsProvisionedPackages {
     foreach ($displayName in $script:UiTestsProvisionedPackagesToRemove) {
         Get-AppxProvisionedPackage -Online |
             Where-Object { $_.DisplayName -eq $displayName } |
             ForEach-Object {
-                Write-Host "Removing provisioned package: $($_.DisplayName)"
-                Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName | Out-Null
+                $package = $_
+                Write-Host "Removing provisioned package: $($package.DisplayName)"
+                try {
+                    Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName -ErrorAction Stop | Out-Null
+                }
+                catch {
+                    Write-Warning "Could not remove provisioned package $($package.DisplayName): $($_.Exception.Message)"
+                }
             }
     }
 }
@@ -46,8 +73,17 @@ function Remove-UiTestsProvisionedPackages {
 function Remove-UiTestsInstalledPackagesForAllUsers {
     foreach ($displayName in $script:UiTestsProvisionedPackagesToRemove) {
         Get-AppxPackage -AllUsers -Name $displayName -ErrorAction SilentlyContinue | ForEach-Object {
-            Write-Host "Removing installed package for current users: $($_.Name)"
-            Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue | Out-Null
+            Write-Host "Removing installed package for all users: $($_.Name)"
+            Remove-UiTestsAppxPackageSafely -PackageFullName $_.PackageFullName
+        }
+    }
+}
+
+function Remove-UiTestsSysprepBlockerPackages {
+    foreach ($displayName in $script:UiTestsSysprepBlockerPackages) {
+        Get-AppxPackage -AllUsers -Name $displayName -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "Removing sysprep blocker package: $($_.Name)"
+            Remove-UiTestsAppxPackageSafely -PackageFullName $_.PackageFullName
         }
     }
 }
