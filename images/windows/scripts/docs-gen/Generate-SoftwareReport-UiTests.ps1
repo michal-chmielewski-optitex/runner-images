@@ -7,10 +7,14 @@ $ErrorView = "NormalView"
 Set-StrictMode -Version Latest
 
 Import-Module ImageHelpers -DisableNameChecking -Force
-Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Common.psm1") -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Helpers.psm1") -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Tools.psm1") -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot "SoftwareReport.VisualStudio.psm1") -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Common.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Helpers.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Tools.psm1") -DisableNameChecking -Force
+Import-Module (Join-Path $PSScriptRoot "SoftwareReport.VisualStudio.psm1") -DisableNameChecking -Force
+
+if (-not (Get-Command Get-VisualStudioVersion -ErrorAction SilentlyContinue)) {
+    throw "Get-VisualStudioVersion was not loaded from SoftwareReport.VisualStudio.psm1"
+}
 
 function Get-UiTestsChromeVersion {
     $chromeExe = 'D:\WebDriver\chrome-win64\chrome.exe'

@@ -75,3 +75,11 @@ function Get-WindowsSDKs {
         Versions = $(Get-ChildItem $path).Name
     }
 }
+
+Export-ModuleMember -Function @(
+    'Get-VisualStudioVersion'
+    'Get-SDKVersion'
+    'Get-WDKVersion'
+    'Get-VisualStudioExtensions'
+    'Get-WindowsSDKs'
+)

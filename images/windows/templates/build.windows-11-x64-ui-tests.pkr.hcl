@@ -199,8 +199,11 @@ build {
   }
 
   provisioner "powershell" {
-    environment_vars = ["IMAGE_VERSION=${var.image_version}", "IMAGE_FOLDER=${var.image_folder}"]
-    inline           = ["pwsh -File '${var.image_folder}\\SoftwareReport\\Generate-SoftwareReport-UiTests.ps1'"]
+    environment_vars = ["IMAGE_VERSION=${var.image_version}", "IMAGE_FOLDER=${var.image_folder}", "UI_TESTS_INIT_D_DRIVE=1"]
+    scripts          = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
+      "${path.root}/../scripts/build/Invoke-UiTestsSoftwareReport.ps1"
+    ]
   }
 
   provisioner "powershell" {
