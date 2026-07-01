@@ -7,7 +7,9 @@
 
 Write-Host 'Removing UI tests D: subst mapping before sysprep...'
 cmd /c 'subst D: /D' 2>$null | Out-Null
+$global:LASTEXITCODE = 0
 mountvol D: /D 2>$null | Out-Null
+$global:LASTEXITCODE = 0
 
 Write-Host 'Removing consumer and sysprep-blocker AppX packages...'
 Remove-UiTestsProvisionedPackages
@@ -22,3 +24,4 @@ while ((Get-Process TiWorker -ErrorAction SilentlyContinue) -and (Get-Date) -lt 
 }
 
 Write-Host 'Prepare-UiTestsSysprep completed.'
+exit 0

@@ -51,6 +51,9 @@ function Remove-UiTestsAppxPackageSafely {
     catch {
         Write-Warning "Could not remove AppX package ${PackageFullName}: $($_.Exception.Message)"
     }
+    finally {
+        $global:LASTEXITCODE = 0
+    }
 }
 
 function Remove-UiTestsProvisionedPackages {
