@@ -143,7 +143,6 @@ build {
     environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_INIT_D_DRIVE=1"]
     scripts           = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
-      "${path.root}/../scripts/build/Install-Wmic.ps1",
       "${path.root}/../scripts/build/Install-WindowsUpdates.ps1",
       "${path.root}/../scripts/build/Configure-DynamicPort.ps1",
       "${path.root}/../scripts/build/Configure-GDIProcessHandleQuota.ps1",
@@ -173,7 +172,24 @@ build {
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-WindowsUpdatesAfterReboot.ps1",
-      "${path.root}/../scripts/build/Invoke-Cleanup.ps1",
+      "${path.root}/../scripts/build/Invoke-Cleanup.ps1"
+    ]
+  }
+
+  provisioner "powershell" {
+    elevated_password = "${var.install_password}"
+    elevated_user     = "${var.install_user}"
+    environment_vars  = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_INIT_D_DRIVE=1"]
+    scripts           = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
+      "${path.root}/../scripts/build/Install-Wmic.ps1"
+    ]
+  }
+
+  provisioner "powershell" {
+    environment_vars = ["IMAGE_FOLDER=${var.image_folder}", "TEMP_DIR=C:\\temp", "UI_TESTS_INIT_D_DRIVE=1"]
+    scripts          = [
+      "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/tests/Run-UiTests-Tests.ps1"
     ]
   }
