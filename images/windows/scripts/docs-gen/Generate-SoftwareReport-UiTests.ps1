@@ -7,6 +7,9 @@ $ErrorView = "NormalView"
 Set-StrictMode -Version Latest
 
 Import-Module ImageHelpers -DisableNameChecking -Force
+if ($env:UI_TESTS_INIT_D_DRIVE -eq '1') {
+    Invoke-ImageHelperScript -ScriptName 'Initialize-UiTestsDriveLetter.ps1'
+}
 Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Common.psm1") -DisableNameChecking -Force
 Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Helpers.psm1") -DisableNameChecking -Force
 Import-Module (Join-Path $PSScriptRoot "SoftwareReport.Tools.psm1") -DisableNameChecking -Force
