@@ -59,15 +59,10 @@ build {
     ]
   }
 
-  provisioner "windows-restart" {
-    check_registry  = true
-    restart_timeout = "10m"
-  }
-
   provisioner "powershell" {
     elevated_password = "${var.install_password}"
     elevated_user     = "${var.install_user}"
-    inline            = ["Import-Module ImageHelpers -DisableNameChecking -Force", "bcdedit.exe /set TESTSIGNING ON"]
+    inline            = ["bcdedit.exe /set TESTSIGNING ON"]
   }
 
   provisioner "powershell" {
@@ -84,6 +79,11 @@ build {
       "${path.root}/../scripts/build/Configure-SystemEnvironment.ps1",
       "${path.root}/../scripts/build/Configure-DotnetSecureChannel.ps1"
     ]
+  }
+
+  provisioner "windows-restart" {
+    check_registry  = true
+    restart_timeout = "10m"
   }
 
   provisioner "powershell" {
