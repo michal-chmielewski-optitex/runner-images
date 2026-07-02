@@ -51,6 +51,8 @@ build {
     inline = ["if (-not ((net localgroup Administrators) -contains '${var.install_user}')) { exit 1 }"]
   }
 
+  # Win11 client: elevated_user provisioners need installer logged in interactively.
+  # Set AutoAdminLogon and reboot before the first elevated task (see build.windows-11-arm64.pkr.hcl).
   provisioner "powershell" {
     inline = [
       "Set-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -Name AutoAdminLogon -Value 1 -type String",
@@ -59,10 +61,16 @@ build {
     ]
   }
 
+  provisioner "windows-restart" {
+    check_registry  = true
+    restart_timeout = "10m"
+  }
+
   provisioner "powershell" {
+    pause_before      = "2m0s"
     elevated_password = "${var.install_password}"
     elevated_user     = "${var.install_user}"
-    inline            = ["bcdedit.exe /set TESTSIGNING ON"]
+    scripts           = ["${path.root}/../scripts/build/Enable-TestSigning.ps1"]
   }
 
   provisioner "powershell" {
