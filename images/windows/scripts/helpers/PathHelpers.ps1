@@ -74,6 +74,28 @@ function Set-RegistryDwordViaRegExe {
     }
 }
 
+function Set-RegistryStringViaRegExe {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $KeyPath,
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [string] $Value
+    )
+
+    $regKeyPath = ConvertTo-RegExeKeyPath -KeyPath $KeyPath
+    $ensureResult = reg add $regKeyPath /f *>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to ensure registry key ${regKeyPath}: $ensureResult"
+    }
+
+    $result = reg add $regKeyPath /v $Name /t REG_SZ /d $Value /f *>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to set ${regKeyPath}\${Name}: $result"
+    }
+}
+
 function Set-RegistryKeyDword {
     param(
         [Parameter(Mandatory = $true)]
@@ -95,6 +117,29 @@ function Set-RegistryKeyDword {
     }
 
     New-ItemProperty -Path $KeyPath -Name $Name -PropertyType DWORD -Value $Value -Force | Out-Null
+}
+
+function Set-RegistryKeyString {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $KeyPath,
+        [Parameter(Mandatory = $true)]
+        [string] $Name,
+        [Parameter(Mandatory = $true)]
+        [string] $Value,
+        [switch] $UseRegExe
+    )
+
+    if ($UseRegExe) {
+        Set-RegistryStringViaRegExe -KeyPath $KeyPath -Name $Name -Value $Value
+        return
+    }
+
+    if (-not (Test-Path $KeyPath)) {
+        New-Item -Path $KeyPath -Force | Out-Null
+    }
+
+    New-ItemProperty -Path $KeyPath -Name $Name -PropertyType String -Value $Value -Force | Out-Null
 }
 
 function Mount-RegistryHive {

@@ -52,31 +52,17 @@ function Set-UiTestsStartupRegistry {
 }
 
 function Set-UiTestsStartupRunOnce {
-  param([string]$RootKey)
+    param([string]$RootKey)
 
-  $useRegExe = $RootKey -eq 'HKLM:\DEFAULT'
-  $command = 'powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\post-generation\Disable-UiTestsStartupExperience.ps1'
-  $runOncePath = "$RootKey\Software\Microsoft\Windows\CurrentVersion\RunOnce"
+    $useRegExe = $RootKey -eq 'HKLM:\DEFAULT'
+    $command = 'powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File C:\post-generation\Disable-UiTestsStartupExperience.ps1'
+    $runOncePath = "$RootKey\Software\Microsoft\Windows\CurrentVersion\RunOnce"
 
-  if ($useRegExe) {
-      $regKeyPath = ConvertTo-RegExeKeyPath -KeyPath $runOncePath
-      $ensureResult = reg add $regKeyPath /f *>&1
-      if ($LASTEXITCODE -ne 0) {
-          throw "Failed to ensure registry key ${regKeyPath}: $ensureResult"
-      }
-
-      $result = reg add $regKeyPath /v DisableUiTestsWelcome /t REG_SZ /d $command /f *>&1
-      if ($LASTEXITCODE -ne 0) {
-          throw "Failed to set RunOnce DisableUiTestsWelcome: $result"
-      }
-      return
-  }
-
-  if (-not (Test-Path $runOncePath)) {
-      New-Item -Path $runOncePath -Force | Out-Null
-  }
-
-  New-ItemProperty -Path $runOncePath -Name DisableUiTestsWelcome -PropertyType String -Value $command -Force | Out-Null
+    Set-RegistryKeyString `
+        -KeyPath $runOncePath `
+        -Name DisableUiTestsWelcome `
+        -Value $command `
+        -UseRegExe:$useRegExe
 }
 
 function Clear-UiTestsGetStartedRunOnce {

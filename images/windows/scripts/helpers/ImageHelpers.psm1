@@ -54,6 +54,7 @@ Export-ModuleMember -Function @(
     'Invoke-ImageHelperScript'
     'Set-RegistryDwordViaRegExe'
     'Set-RegistryKeyDword'
+    'Set-RegistryKeyString'
 )
 
 . $PSScriptRoot\VisualStudioHelpers.ps1
