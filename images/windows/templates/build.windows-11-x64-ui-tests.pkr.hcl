@@ -248,7 +248,8 @@ build {
   }
 
   provisioner "powershell" {
-    scripts = ["${path.root}/../scripts/build/Import-ImageHelpers.ps1", "${path.root}/../scripts/build/Invoke-UiTestsSysprep.ps1"]
+    environment_vars = ["INSTALL_USER=${var.install_user}"]
+    scripts          = ["${path.root}/../scripts/build/Import-ImageHelpers.ps1", "${path.root}/../scripts/build/Invoke-UiTestsSysprep.ps1"]
   }
 
 }

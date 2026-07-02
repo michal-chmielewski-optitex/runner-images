@@ -134,6 +134,138 @@ function Remove-UiTestsSysprepBlockerPackages {
     }
 }
 
+function Get-UiTestsProvisionedAppxDisplayNames {
+    @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Select-Object -ExpandProperty DisplayName)
+}
+
+function Get-UiTestsNonProvisionedInstalledAppx {
+    $provisioned = Get-UiTestsProvisionedAppxDisplayNames
+    $testPackage = {
+        param($pkg)
+        $pkg.DisplayName -and
+        ($pkg.DisplayName -notin $provisioned) -and
+        -not $pkg.IsFramework -and
+        -not $pkg.IsResourcePackage
+    }
+
+    $seen = @{}
+    $results = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($pkg in @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | Where-Object { & $testPackage $_ })) {
+        if (-not $seen.ContainsKey($pkg.PackageFullName)) {
+            $seen[$pkg.PackageFullName] = $true
+            [void]$results.Add($pkg)
+        }
+    }
+
+    $profileSids = @(Get-CimInstance Win32_UserProfile -ErrorAction SilentlyContinue |
+        Where-Object { -not $_.Special -and $_.SID } |
+        Select-Object -ExpandProperty SID -Unique)
+
+    foreach ($sid in $profileSids) {
+        foreach ($pkg in @(Get-AppxPackage -User $sid -ErrorAction SilentlyContinue | Where-Object { & $testPackage $_ })) {
+            if (-not $seen.ContainsKey($pkg.PackageFullName)) {
+                $seen[$pkg.PackageFullName] = $true
+                [void]$results.Add($pkg)
+            }
+        }
+    }
+
+    foreach ($pkg in @(Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { & $testPackage $_ })) {
+        if (-not $seen.ContainsKey($pkg.PackageFullName)) {
+            $seen[$pkg.PackageFullName] = $true
+            [void]$results.Add($pkg)
+        }
+    }
+
+    @($results)
+}
+
+function Remove-UiTestsNonProvisionedInstalledAppx {
+    $packages = Get-UiTestsNonProvisionedInstalledAppx
+    foreach ($pkg in $packages) {
+        Write-Host "Removing non-provisioned package: $($pkg.Name) [$($pkg.PackageFullName)]"
+        Remove-UiTestsAppxPackageSafely -PackageFullName $pkg.PackageFullName
+    }
+
+    $provisioned = Get-UiTestsProvisionedAppxDisplayNames
+    $profileSids = @(Get-CimInstance Win32_UserProfile -ErrorAction SilentlyContinue |
+        Where-Object { -not $_.Special -and $_.SID } |
+        Select-Object -ExpandProperty SID -Unique)
+
+    foreach ($sid in $profileSids) {
+        Get-AppxPackage -User $sid -ErrorAction SilentlyContinue | Where-Object {
+            $_.DisplayName -notin $provisioned -and -not $_.IsFramework -and -not $_.IsResourcePackage
+        } | ForEach-Object {
+            try {
+                Remove-AppxPackage -Package $_.PackageFullName -User $sid -ErrorAction Stop | Out-Null
+                Write-Host "Removed $($_.Name) for profile SID $sid"
+            }
+            catch {
+                Write-Warning "Could not remove $($_.PackageFullName) for SID ${sid}: $($_.Exception.Message)"
+            }
+            finally {
+                $global:LASTEXITCODE = 0
+            }
+        }
+    }
+
+    Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object {
+        $_.DisplayName -notin $provisioned -and -not $_.IsFramework -and -not $_.IsResourcePackage
+    } | ForEach-Object {
+        try {
+            Remove-AppxPackage -Package $_.PackageFullName -ErrorAction Stop | Out-Null
+            Write-Host "Removed $($_.Name) for current WinRM user"
+        }
+        catch {
+            Write-Warning "Could not remove $($_.PackageFullName) for current user: $($_.Exception.Message)"
+        }
+        finally {
+            $global:LASTEXITCODE = 0
+        }
+    }
+}
+
+function Remove-UiTestsUnloadedBuildUserProfiles {
+    param(
+        [string[]] $UserNames
+    )
+
+    foreach ($userName in $UserNames) {
+        if ([string]::IsNullOrWhiteSpace($userName)) {
+            continue
+        }
+
+        $profiles = @(Get-CimInstance Win32_UserProfile -ErrorAction SilentlyContinue | Where-Object {
+            $_.LocalPath -like "*\$userName" -and -not $_.Special
+        })
+
+        foreach ($profile in $profiles) {
+            if ($profile.Loaded) {
+                Write-Warning "Skipping loaded profile $($profile.LocalPath); AppX must be removed in-place."
+                continue
+            }
+
+            Write-Host "Removing unloaded profile: $($profile.LocalPath)"
+            $profile | Remove-CimInstance -ErrorAction Stop
+        }
+    }
+}
+
+function Assert-UiTestsSysprepAppxState {
+    $remaining = Get-UiTestsNonProvisionedInstalledAppx
+    if ($remaining.Count -eq 0) {
+        Write-Host 'AppX sysprep check: no installed non-provisioned packages remain.'
+        return
+    }
+
+    $details = ($remaining | ForEach-Object { "  $($_.Name) [$($_.PackageFullName)]" }) -join [Environment]::NewLine
+    throw @"
+Installed AppX packages are not provisioned (sysprep 0x80073cf2):
+$details
+"@
+}
+
 function Write-UiTestsRemainingAppxAudit {
     $remaining = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue |
         Where-Object {
@@ -156,5 +288,11 @@ function Invoke-UiTestsSysprepAppxCleanup {
     Remove-UiTestsProvisionedPackages
     Remove-UiTestsInstalledPackagesForAllUsers
     Remove-UiTestsSysprepBlockerPackages
-    Write-UiTestsRemainingAppxAudit
+    Remove-UiTestsNonProvisionedInstalledAppx
+
+    $buildUsers = @($env:INSTALL_USER, 'packer') | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+    Remove-UiTestsUnloadedBuildUserProfiles -UserNames $buildUsers
+
+    Remove-UiTestsNonProvisionedInstalledAppx
+    Assert-UiTestsSysprepAppxState
 }
