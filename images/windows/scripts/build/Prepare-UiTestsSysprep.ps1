@@ -5,6 +5,8 @@
 
 . (Get-ImageHelperScriptPath -ScriptName 'UiTests-ProvisionedPackages.ps1')
 
+Stop-UiTestsWelcomeProcesses
+
 Write-Host 'Removing UI tests D: subst mapping before sysprep...'
 cmd /c 'subst D: /D' 2>$null | Out-Null
 $global:LASTEXITCODE = 0

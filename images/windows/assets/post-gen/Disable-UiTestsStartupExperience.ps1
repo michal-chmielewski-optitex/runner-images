@@ -12,18 +12,22 @@ if ($imageData -notmatch 'windows-11-x64-ui-tests') {
     return
 }
 
+Import-Module ImageHelpers -DisableNameChecking -Force
+
 $packagesScript = Join-Path $PSScriptRoot 'UiTests-ProvisionedPackages.ps1'
+$registryScript = Join-Path $PSScriptRoot 'UiTests-StartupExperienceRegistry.ps1'
+
 if (Test-Path $packagesScript) {
     . $packagesScript
+    Stop-UiTestsWelcomeProcesses
     Remove-UiTestsInstalledPackagesForAllUsers
+    Remove-UiTestsSysprepBlockerPackages
 }
 
-$cdmPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
-if (-not (Test-Path $cdmPath)) {
-    New-Item -Path $cdmPath -Force | Out-Null
+if (Test-Path $registryScript) {
+    . $registryScript
+    Set-UiTestsStartupRegistry -RootKey 'HKCU:'
+    Clear-UiTestsGetStartedRunOnce -RootKey 'HKCU:'
 }
 
-New-ItemProperty -Path $cdmPath -Name SubscribedContent-310093Enabled -PropertyType DWORD -Value 0 -Force | Out-Null
-
-Get-Process -Name 'GetStarted' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Get-Process -Name 'OOBE' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Stop-UiTestsWelcomeProcesses

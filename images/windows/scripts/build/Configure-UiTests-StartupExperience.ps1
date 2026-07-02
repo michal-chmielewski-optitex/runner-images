@@ -4,44 +4,9 @@
 ################################################################################
 
 . (Get-ImageHelperScriptPath -ScriptName 'UiTests-ProvisionedPackages.ps1')
+. (Get-ImageHelperScriptPath -ScriptName 'UiTests-StartupExperienceRegistry.ps1')
 
-function Set-UiTestsStartupRegistry {
-    param([string]$RootKey)
-
-    $useRegExe = $RootKey -eq 'HKLM:\DEFAULT'
-
-    function Set-Dword {
-        param(
-            [Parameter(Mandatory = $true)][string] $RelativePath,
-            [Parameter(Mandatory = $true)][string] $Name,
-            [Parameter(Mandatory = $true)][int] $Value
-        )
-
-        Set-RegistryKeyDword `
-            -KeyPath "$RootKey\$RelativePath" `
-            -Name $Name `
-            -Value $Value `
-            -UseRegExe:$useRegExe
-    }
-
-    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableWindowsConsumerFeatures -Value 1
-    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableCloudOptimizedContent -Value 1
-    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -Name TurnOffWindowsCopilot -Value 1
-    Set-Dword -RelativePath 'SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE' -Name DisablePrivacyExperience -Value 1
-
-    foreach ($name in @(
-            'SubscribedContent-310093Enabled'
-            'SubscribedContent-338388Enabled'
-            'SubscribedContent-338389Enabled'
-            'SubscribedContent-338393Enabled'
-            'SubscribedContent-353694Enabled'
-            'SubscribedContent-353696Enabled'
-            'SoftLandingEnabled'
-            'SystemPaneSuggestionsEnabled'
-        )) {
-        Set-Dword -RelativePath 'Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager' -Name $name -Value 0
-    }
-}
+Stop-UiTestsWelcomeProcesses
 
 Set-UiTestsStartupRegistry -RootKey 'HKLM:'
 
@@ -50,13 +15,17 @@ Mount-RegistryHive `
     -SubKey 'HKLM\DEFAULT'
 
 Set-UiTestsStartupRegistry -RootKey 'HKLM:\DEFAULT'
+Set-UiTestsStartupRunOnce -RootKey 'HKLM:\DEFAULT'
+Clear-UiTestsGetStartedRunOnce -RootKey 'HKLM:\DEFAULT'
 
 Dismount-RegistryHive 'HKLM\DEFAULT'
 
 Remove-UiTestsProvisionedPackages
+Remove-UiTestsInstalledPackagesForAllUsers
 
 foreach ($scriptName in @(
         'UiTests-ProvisionedPackages.ps1'
+        'UiTests-StartupExperienceRegistry.ps1'
     )) {
     Copy-Item -Path (Get-ImageHelperScriptPath -ScriptName $scriptName) -Destination 'C:\post-generation\' -Force
 }

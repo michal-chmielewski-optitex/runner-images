@@ -5,12 +5,23 @@ Describe "UiTests startup experience" {
             -SubKey 'HKLM\DEFAULT'
 
         try {
-            $path = 'HKLM:\DEFAULT\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
-            (Get-ItemProperty -Path $path).'SubscribedContent-310093Enabled' | Should -Be 0
+            $cdmPath = 'HKLM:\DEFAULT\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'
+            (Get-ItemProperty -Path $cdmPath).'SubscribedContent-310093Enabled' | Should -Be 0
+
+            $engagementPath = 'HKLM:\DEFAULT\SOFTWARE\Microsoft\Windows\CurrentVersion\UserProfileEngagement'
+            (Get-ItemProperty -Path $engagementPath).ScoobeSystemSettingEnabled | Should -Be 0
         }
         finally {
             Dismount-RegistryHive 'HKLM\DEFAULT'
         }
+    }
+
+    It "First logon welcome animation is disabled" {
+        (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon').EnableFirstLogonAnimation | Should -Be 0
+    }
+
+    It "Recently added apps are hidden by policy" {
+        (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer').HideRecentlyAddedApps | Should -Be 1
     }
 
     It "Get Started provisioned packages are removed" {

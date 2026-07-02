@@ -38,21 +38,61 @@ $script:UiTestsSysprepBlockerPackages = @(
     'Microsoft.StartExperiencesApp'
 )
 
+function Stop-UiTestsWelcomeProcesses {
+    foreach ($processName in @('GetStarted', 'OOBE', 'WebExperienceHost', 'StartExperiencesApp')) {
+        Get-Process -Name $processName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Remove-UiTestsAppxPackageSafely {
     param(
         [Parameter(Mandatory = $true)]
         [string] $PackageFullName
     )
 
-    try {
-        Remove-AppxPackage -Package $PackageFullName -AllUsers -ErrorAction Stop | Out-Null
-        Write-Host "Removed AppX package: $PackageFullName"
+    Stop-UiTestsWelcomeProcesses
+
+    $packages = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | Where-Object { $_.PackageFullName -eq $PackageFullName })
+    if ($packages.Count -eq 0) {
+        return
     }
-    catch {
-        Write-Warning "Could not remove AppX package ${PackageFullName}: $($_.Exception.Message)"
+
+    $removedAny = $false
+    foreach ($pkg in $packages) {
+        $userInfos = @($pkg.PackageUserInformation | Where-Object { $_ })
+        if ($userInfos.Count -gt 0) {
+            foreach ($userInfo in $userInfos) {
+                $userSid = $userInfo.UserSecurityId.Id
+                try {
+                    Remove-AppxPackage -Package $PackageFullName -User $userSid -ErrorAction Stop | Out-Null
+                    Write-Host "Removed AppX package $PackageFullName for user $userSid"
+                    $removedAny = $true
+                }
+                catch {
+                    Write-Warning "Could not remove AppX package ${PackageFullName} for user ${userSid}: $($_.Exception.Message)"
+                }
+                finally {
+                    $global:LASTEXITCODE = 0
+                }
+            }
+            continue
+        }
+
+        try {
+            Remove-AppxPackage -Package $PackageFullName -AllUsers -ErrorAction Stop | Out-Null
+            Write-Host "Removed AppX package: $PackageFullName"
+            $removedAny = $true
+        }
+        catch {
+            Write-Warning "Could not remove AppX package ${PackageFullName}: $($_.Exception.Message)"
+        }
+        finally {
+            $global:LASTEXITCODE = 0
+        }
     }
-    finally {
-        $global:LASTEXITCODE = 0
+
+    if (-not $removedAny) {
+        Write-Warning "AppX package ${PackageFullName} is still registered for one or more users."
     }
 }
 
@@ -74,6 +114,8 @@ function Remove-UiTestsProvisionedPackages {
 }
 
 function Remove-UiTestsInstalledPackagesForAllUsers {
+    Stop-UiTestsWelcomeProcesses
+
     foreach ($displayName in $script:UiTestsProvisionedPackagesToRemove) {
         Get-AppxPackage -AllUsers -Name $displayName -ErrorAction SilentlyContinue | ForEach-Object {
             Write-Host "Removing installed package for all users: $($_.Name)"
