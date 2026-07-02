@@ -16,6 +16,33 @@ function Get-SysprepLogTail {
     return (Get-Content $Path -Tail $Lines -ErrorAction SilentlyContinue) -join [Environment]::NewLine
 }
 
+function Get-UiTestsSysprepFailureMessage {
+    param(
+        [Parameter(Mandatory = $true)][string] $Reason,
+        [string] $ImageState
+    )
+
+    $pantherDir = Join-Path $env:SystemRoot 'System32\Sysprep\Panther'
+    $setupErr = Join-Path $pantherDir 'setuperr.log'
+    $setupAct = Join-Path $pantherDir 'setupact.log'
+
+    return @"
+$Reason
+Last ImageState: $ImageState
+
+--- setuperr.log (tail) ---
+$(Get-SysprepLogTail -Path $setupErr)
+
+--- setupact.log (tail) ---
+$(Get-SysprepLogTail -Path $setupAct)
+"@
+}
+
+. (Get-ImageHelperScriptPath -ScriptName 'UiTests-ProvisionedPackages.ps1')
+
+Write-Host 'Running pre-sysprep AppX cleanup...'
+Invoke-UiTestsSysprepAppxCleanup
+
 $unattendPath = Join-Path $env:SystemRoot 'System32\Sysprep\unattend.xml'
 if (Test-Path $unattendPath) {
     Remove-Item $unattendPath -Force
@@ -24,12 +51,17 @@ if (Test-Path $unattendPath) {
 Write-Host 'Starting sysprep /generalize...'
 $sysprepExe = Join-Path $env:SystemRoot 'System32\Sysprep\Sysprep.exe'
 $p = Start-Process -FilePath $sysprepExe -ArgumentList @('/oobe', '/generalize', '/mode:vm', '/quiet', '/quit') -PassThru -Wait -NoNewWindow
+Write-Host "Sysprep.exe exited with code $($p.ExitCode)"
 if ($p.ExitCode -ne 0) {
-    throw "Sysprep.exe exited with code $($p.ExitCode)"
+    $imageState = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
+    throw (Get-UiTestsSysprepFailureMessage -Reason "Sysprep.exe exited with code $($p.ExitCode)." -ImageState $imageState)
 }
 
 $timeoutMinutes = 45
+$completeStuckMinutes = 5
 $deadline = (Get-Date).AddMinutes($timeoutMinutes)
+$completeStuckSince = $null
+
 while ((Get-Date) -lt $deadline) {
     $imageState = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
     if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') {
@@ -37,22 +69,25 @@ while ((Get-Date) -lt $deadline) {
         return
     }
 
+    if ($imageState -eq 'IMAGE_STATE_COMPLETE') {
+        if ($null -eq $completeStuckSince) {
+            $completeStuckSince = Get-Date
+        }
+        elseif (((Get-Date) - $completeStuckSince).TotalMinutes -ge $completeStuckMinutes) {
+            throw (Get-UiTestsSysprepFailureMessage `
+                -Reason "Sysprep did not progress beyond IMAGE_STATE_COMPLETE within ${completeStuckMinutes} minutes (likely AppX/generalize failure)." `
+                -ImageState $imageState)
+        }
+    }
+    else {
+        $completeStuckSince = $null
+    }
+
     Write-Host "Waiting for sysprep: $imageState"
     Start-Sleep -Seconds 10
 }
 
-$pantherDir = Join-Path $env:SystemRoot 'System32\Sysprep\Panther'
-$setupErr = Join-Path $pantherDir 'setuperr.log'
-$setupAct = Join-Path $pantherDir 'setupact.log'
 $lastState = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState
-
-throw @"
-Sysprep did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within ${timeoutMinutes} minutes.
-Last ImageState: $lastState
-
---- setuperr.log (tail) ---
-$(Get-SysprepLogTail -Path $setupErr)
-
---- setupact.log (tail) ---
-$(Get-SysprepLogTail -Path $setupAct)
-"@
+throw (Get-UiTestsSysprepFailureMessage `
+    -Reason "Sysprep did not reach IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE within ${timeoutMinutes} minutes." `
+    -ImageState $lastState)

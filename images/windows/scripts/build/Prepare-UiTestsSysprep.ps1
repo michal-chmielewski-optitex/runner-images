@@ -14,9 +14,7 @@ mountvol D: /D 2>$null | Out-Null
 $global:LASTEXITCODE = 0
 
 Write-Host 'Removing consumer and sysprep-blocker AppX packages...'
-Remove-UiTestsProvisionedPackages
-Remove-UiTestsInstalledPackagesForAllUsers
-Remove-UiTestsSysprepBlockerPackages
+Invoke-UiTestsSysprepAppxCleanup
 
 Write-Host 'Waiting for servicing tasks to complete...'
 $deadline = (Get-Date).AddMinutes(10)

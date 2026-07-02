@@ -35,6 +35,7 @@ $script:UiTestsProvisionedPackagesToRemove = @(
 $script:UiTestsSysprepBlockerPackages = @(
     'Microsoft.WidgetsPlatformRuntime'
     'MicrosoftWindows.Client.WebExperience'
+    'MicrosoftWindows.Client.OOBE'
     'Microsoft.StartExperiencesApp'
 )
 
@@ -131,4 +132,29 @@ function Remove-UiTestsSysprepBlockerPackages {
             Remove-UiTestsAppxPackageSafely -PackageFullName $_.PackageFullName
         }
     }
+}
+
+function Write-UiTestsRemainingAppxAudit {
+    $remaining = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.Name -in ($script:UiTestsProvisionedPackagesToRemove + $script:UiTestsSysprepBlockerPackages)
+        })
+
+    if ($remaining.Count -eq 0) {
+        Write-Host 'AppX audit: no known sysprep-blocker packages remain installed.'
+        return
+    }
+
+    Write-Warning 'AppX audit: the following packages are still installed and may block sysprep:'
+    $remaining | ForEach-Object {
+        Write-Warning "  $($_.Name) [$($_.PackageFullName)]"
+    }
+}
+
+function Invoke-UiTestsSysprepAppxCleanup {
+    Stop-UiTestsWelcomeProcesses
+    Remove-UiTestsProvisionedPackages
+    Remove-UiTestsInstalledPackagesForAllUsers
+    Remove-UiTestsSysprepBlockerPackages
+    Write-UiTestsRemainingAppxAudit
 }
