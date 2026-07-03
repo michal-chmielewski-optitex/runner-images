@@ -200,15 +200,31 @@ function Register-UiTestsStartupWatchdogTask {
     Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 30-second watchdog loop)."
 }
 
+function Invoke-UiTestsPowerCfg {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList
+    )
+
+    $previousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    try {
+        & powercfg.exe @ArgumentList 2>&1 | Out-Null
+        return $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorAction
+        $global:LASTEXITCODE = 0
+    }
+}
+
 function Set-UiTestsPowerSettings {
     Write-Host 'Configuring power settings: disable display sleep and system standby.'
 
     $highPerformanceGuid = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
-    & powercfg /setactive $highPerformanceGuid 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    if ((Invoke-UiTestsPowerCfg @('/setactive', $highPerformanceGuid)) -ne 0) {
         Write-Warning 'High performance power plan is unavailable; applying timeouts to the active plan.'
     }
-    $global:LASTEXITCODE = 0
 
     foreach ($setting in @(
             'monitor-timeout-ac'
@@ -220,8 +236,7 @@ function Set-UiTestsPowerSettings {
             'disk-timeout-ac'
             'disk-timeout-dc'
         )) {
-        & powercfg /change $setting 0 | Out-Null
-        $global:LASTEXITCODE = 0
+        Invoke-UiTestsPowerCfg @('/change', $setting, '0') | Out-Null
     }
 
     $policyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop'
@@ -262,13 +277,9 @@ function Set-UiTestsSessionLockDisabled {
     $subNone = '238c9fa8-0aad-41ed-83f4-97be242c8f20'
     $requirePasswordOnWake = '0e796bdb-100d-47d6-a2d5-f7d2daa51f51'
     foreach ($setter in @('/SETACVALUEINDEX', '/SETDCVALUEINDEX')) {
-        & powercfg $setter SCHEME_CURRENT $subNone $requirePasswordOnWake 0 2>$null | Out-Null
-        $global:LASTEXITCODE = 0
-        & powercfg $setter SCHEME_CURRENT SUB_NONE CONSOLELOCK 0 2>$null | Out-Null
-        $global:LASTEXITCODE = 0
+        Invoke-UiTestsPowerCfg @($setter, 'SCHEME_CURRENT', $subNone, $requirePasswordOnWake, '0') | Out-Null
     }
-    & powercfg /SETACTIVE SCHEME_CURRENT | Out-Null
-    $global:LASTEXITCODE = 0
+    Invoke-UiTestsPowerCfg @('/SETACTIVE', 'SCHEME_CURRENT') | Out-Null
 }
 
 function Set-UiTestsScreensaverDisabled {
