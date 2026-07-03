@@ -83,9 +83,23 @@ Describe "UiTests startup experience" {
             $desktopPath = 'HKLM:\DEFAULT\Control Panel\Desktop'
             (Get-ItemProperty -Path $desktopPath).ScreenSaveActive | Should -Be '0'
             (Get-ItemProperty -Path $desktopPath).ScreenSaveTimeOut | Should -Be '0'
+            (Get-ItemProperty -Path $desktopPath).ScreenSaverIsSecure | Should -Be '0'
         }
         finally {
             Dismount-RegistryHive 'HKLM\DEFAULT'
         }
+    }
+
+    It "Automatic workstation lock and session timeouts are disabled" {
+        $systemPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+        (Get-ItemProperty -Path $systemPath).InactivityTimeoutSecs | Should -Be 0
+        (Get-ItemProperty -Path $systemPath).DisableLockWorkstation | Should -Be 1
+
+        $personalizationPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization'
+        (Get-ItemProperty -Path $personalizationPath).NoLockScreen | Should -Be 1
+
+        $tsPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+        (Get-ItemProperty -Path $tsPath).MaxIdleTime | Should -Be 0
+        (Get-ItemProperty -Path $tsPath).MaxDisconnectionTime | Should -Be 0
     }
 }

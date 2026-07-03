@@ -147,6 +147,44 @@ function Set-UiTestsPowerSettings {
     }
     New-ItemProperty -Path $policyPath -Name ScreenSaveActive -Value '0' -PropertyType String -Force | Out-Null
     New-ItemProperty -Path $policyPath -Name ScreenSaveTimeOut -Value '0' -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $policyPath -Name ScreenSaverIsSecure -Value '0' -PropertyType String -Force | Out-Null
+
+    Set-UiTestsSessionLockDisabled
+}
+
+function Set-UiTestsSessionLockDisabled {
+    Write-Host 'Configuring session settings: disable auto-lock, sign-in on wake, and session timeouts.'
+
+    $systemPolicyPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+    if (-not (Test-Path $systemPolicyPath)) {
+        New-Item -Path $systemPolicyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $systemPolicyPath -Name InactivityTimeoutSecs -Value 0 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $systemPolicyPath -Name DisableLockWorkstation -Value 1 -PropertyType DWord -Force | Out-Null
+
+    $personalizationPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Personalization'
+    if (-not (Test-Path $personalizationPath)) {
+        New-Item -Path $personalizationPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $personalizationPath -Name NoLockScreen -Value 1 -PropertyType DWord -Force | Out-Null
+
+    $terminalServicesPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
+    if (-not (Test-Path $terminalServicesPath)) {
+        New-Item -Path $terminalServicesPath -Force | Out-Null
+    }
+    foreach ($name in @('MaxIdleTime', 'MaxDisconnectionTime', 'RemoteAppLogoffTimeLimit')) {
+        New-ItemProperty -Path $terminalServicesPath -Name $name -Value 0 -PropertyType DWord -Force | Out-Null
+    }
+
+    $subNone = '238c9fa8-0aad-41ed-83f4-97be242c8f20'
+    $requirePasswordOnWake = '0e796bdb-100d-47d6-a2d5-f7d2daa51f51'
+    foreach ($setter in @('/SETACVALUEINDEX', '/SETDCVALUEINDEX')) {
+        & powercfg $setter SCHEME_CURRENT $subNone $requirePasswordOnWake 0 | Out-Null
+        & powercfg $setter SCHEME_CURRENT SUB_NONE CONSOLELOCK 0 | Out-Null
+        $global:LASTEXITCODE = 0
+    }
+    & powercfg /SETACTIVE SCHEME_CURRENT | Out-Null
+    $global:LASTEXITCODE = 0
 }
 
 function Set-UiTestsScreensaverDisabled {
@@ -158,6 +196,7 @@ function Set-UiTestsScreensaverDisabled {
     foreach ($entry in @(
             @{ Name = 'ScreenSaveActive'; Value = '0' }
             @{ Name = 'ScreenSaveTimeOut'; Value = '0' }
+            @{ Name = 'ScreenSaverIsSecure'; Value = '0' }
         )) {
         Set-RegistryKeyString `
             -KeyPath $desktopPath `
