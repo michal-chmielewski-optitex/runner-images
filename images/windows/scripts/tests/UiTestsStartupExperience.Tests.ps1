@@ -51,5 +51,12 @@ Describe "UiTests startup experience" {
     It "Cloud consumer features policy is disabled" {
         $path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent'
         (Get-ItemProperty -Path $path).DisableWindowsConsumerFeatures | Should -Be 1
+        (Get-ItemProperty -Path $path).DisableConsumerAccountStateContent | Should -Be 1
+    }
+
+    It "Startup suppression scheduled task is registered" {
+        $task = Get-ScheduledTask -TaskName 'DisableUiTestsStartupExperience' -ErrorAction SilentlyContinue
+        $task | Should -Not -BeNullOrEmpty
+        $task.Triggers.CimClass.CimClassName | Should -Contain 'MSFT_TaskLogonTrigger'
     }
 }

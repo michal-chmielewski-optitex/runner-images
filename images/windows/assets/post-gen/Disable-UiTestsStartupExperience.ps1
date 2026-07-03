@@ -20,8 +20,10 @@ $registryScript = Join-Path $PSScriptRoot 'UiTests-StartupExperienceRegistry.ps1
 if (Test-Path $packagesScript) {
     . $packagesScript
     Stop-UiTestsWelcomeProcesses
+    Remove-UiTestsProvisionedPackages
     Remove-UiTestsInstalledPackagesForAllUsers
     Remove-UiTestsSysprepBlockerPackages
+    Remove-UiTestsNonProvisionedInstalledAppx
 }
 
 if (Test-Path $registryScript) {

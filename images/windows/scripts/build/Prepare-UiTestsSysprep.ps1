@@ -4,6 +4,7 @@
 ################################################################################
 
 . (Get-ImageHelperScriptPath -ScriptName 'UiTests-ProvisionedPackages.ps1')
+. (Get-ImageHelperScriptPath -ScriptName 'UiTests-StartupExperienceRegistry.ps1')
 
 Stop-UiTestsWelcomeProcesses
 
@@ -15,6 +16,9 @@ $global:LASTEXITCODE = 0
 
 Write-Host 'Removing consumer and sysprep-blocker AppX packages...'
 Invoke-UiTestsSysprepAppxCleanup
+
+Write-Host 'Re-applying startup experience settings after final updates...'
+Invoke-UiTestsStartupExperienceConfiguration
 
 Write-Host 'Waiting for servicing tasks to complete...'
 $deadline = (Get-Date).AddMinutes(10)

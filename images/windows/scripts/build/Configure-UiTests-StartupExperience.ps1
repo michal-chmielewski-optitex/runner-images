@@ -6,19 +6,7 @@
 . (Get-ImageHelperScriptPath -ScriptName 'UiTests-ProvisionedPackages.ps1')
 . (Get-ImageHelperScriptPath -ScriptName 'UiTests-StartupExperienceRegistry.ps1')
 
-Stop-UiTestsWelcomeProcesses
-
-Set-UiTestsStartupRegistry -RootKey 'HKLM:'
-
-Mount-RegistryHive `
-    -FileName 'C:\Users\Default\NTUSER.DAT' `
-    -SubKey 'HKLM\DEFAULT'
-
-Set-UiTestsStartupRegistry -RootKey 'HKLM:\DEFAULT'
-Set-UiTestsStartupRunOnce -RootKey 'HKLM:\DEFAULT'
-Clear-UiTestsGetStartedRunOnce -RootKey 'HKLM:\DEFAULT'
-
-Dismount-RegistryHive 'HKLM\DEFAULT'
+Invoke-UiTestsStartupExperienceConfiguration
 
 Remove-UiTestsProvisionedPackages
 Remove-UiTestsInstalledPackagesForAllUsers
