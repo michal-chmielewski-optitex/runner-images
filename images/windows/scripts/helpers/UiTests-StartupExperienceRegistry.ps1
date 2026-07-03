@@ -159,10 +159,10 @@ function Stop-UiTestsStoreInstallServices {
 
 function Register-UiTestsStartupWatchdogTask {
     $taskName = 'DisableUiTestsStartupWatchdog'
-    $scriptPath = 'C:\post-generation\Disable-UiTestsStartupWatchdog.ps1'
+    $scriptPath = 'C:\post-generation\Start-UiTestsStartupWatchdogLoop.ps1'
 
     if (-not (Test-Path $scriptPath)) {
-        Write-Warning "Post-gen watchdog script not found: $scriptPath"
+        Write-Warning "Post-gen watchdog launcher not found: $scriptPath"
         return
     }
 
@@ -176,16 +176,12 @@ function Register-UiTestsStartupWatchdogTask {
         -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
 
     $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $repetitionTemplate = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-        -RepetitionInterval (New-TimeSpan -Seconds 30) `
-        -RepetitionDuration (New-TimeSpan -Days 365)
-    $trigger.Repetition = $repetitionTemplate.Repetition
 
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
         -StartWhenAvailable `
-        -ExecutionTimeLimit (New-TimeSpan -Seconds 25) `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 2) `
         -MultipleInstances IgnoreNew
 
     $principal = New-ScheduledTaskPrincipal `
@@ -198,10 +194,10 @@ function Register-UiTestsStartupWatchdogTask {
         -Trigger $trigger `
         -Settings $settings `
         -Principal $principal `
-        -Description 'Kill Get Started if it appears during UI test sessions.' `
+        -Description 'Start background Get Started watchdog loop on interactive UI test agents.' `
         -Force | Out-Null
 
-    Write-Host "Registered scheduled task '$taskName' (AtLogOn, repeat every 30 seconds)."
+    Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 30-second watchdog loop)."
 }
 
 function Set-UiTestsPowerSettings {
@@ -266,8 +262,9 @@ function Set-UiTestsSessionLockDisabled {
     $subNone = '238c9fa8-0aad-41ed-83f4-97be242c8f20'
     $requirePasswordOnWake = '0e796bdb-100d-47d6-a2d5-f7d2daa51f51'
     foreach ($setter in @('/SETACVALUEINDEX', '/SETDCVALUEINDEX')) {
-        & powercfg $setter SCHEME_CURRENT $subNone $requirePasswordOnWake 0 | Out-Null
-        & powercfg $setter SCHEME_CURRENT SUB_NONE CONSOLELOCK 0 | Out-Null
+        & powercfg $setter SCHEME_CURRENT $subNone $requirePasswordOnWake 0 2>$null | Out-Null
+        $global:LASTEXITCODE = 0
+        & powercfg $setter SCHEME_CURRENT SUB_NONE CONSOLELOCK 0 2>$null | Out-Null
         $global:LASTEXITCODE = 0
     }
     & powercfg /SETACTIVE SCHEME_CURRENT | Out-Null

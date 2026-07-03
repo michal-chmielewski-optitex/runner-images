@@ -64,8 +64,12 @@ Describe "UiTests startup experience" {
         $task = Get-ScheduledTask -TaskName 'DisableUiTestsStartupWatchdog' -ErrorAction SilentlyContinue
         $task | Should -Not -BeNullOrEmpty
         $task.Triggers.CimClass.CimClassName | Should -Contain 'MSFT_TaskLogonTrigger'
-        $task.Triggers[0].Repetition | Should -Not -BeNullOrEmpty
-        $task.Triggers[0].Repetition.Interval | Should -BeIn @('PT30S', 'PT1M')
+        $task.Actions[0].Arguments | Should -Match 'Start-UiTestsStartupWatchdogLoop\.ps1'
+    }
+
+    It "Startup watchdog loop scripts are deployed" {
+        Test-Path 'C:\post-generation\Start-UiTestsStartupWatchdogLoop.ps1' | Should -Be $true
+        Test-Path 'C:\post-generation\Disable-UiTestsStartupWatchdogLoop.ps1' | Should -Be $true
     }
 
     It "Microsoft Store and InstallService are disabled" {
