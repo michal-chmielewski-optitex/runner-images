@@ -6,7 +6,14 @@ $global:ProgressPreference = "SilentlyContinue"
 $ErrorView = "NormalView"
 Set-StrictMode -Version Latest
 
-Import-Module ImageHelpers -DisableNameChecking -Force
+$moduleRoot = Join-Path $env:ProgramFiles 'WindowsPowerShell\Modules\ImageHelpers'
+$moduleFile = Join-Path $moduleRoot 'ImageHelpers.psm1'
+Import-Module $moduleFile -DisableNameChecking -Force
+
+if (-not (Get-Command Invoke-ImageHelperScript -ErrorAction SilentlyContinue)) {
+    . (Join-Path $moduleRoot 'PathHelpers.ps1')
+}
+
 if ($env:UI_TESTS_INIT_D_DRIVE -eq '1') {
     Invoke-ImageHelperScript -ScriptName 'Initialize-UiTestsDriveLetter.ps1'
 }
