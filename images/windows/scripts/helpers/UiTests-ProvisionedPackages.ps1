@@ -40,9 +40,45 @@ $script:UiTestsSysprepBlockerPackages = @(
 )
 
 function Stop-UiTestsWelcomeProcesses {
-    foreach ($processName in @('GetStarted', 'OOBE', 'WebExperienceHost', 'StartExperiencesApp')) {
+    foreach ($processName in @(
+            'GetStarted'
+            'OOBE'
+            'WebExperienceHost'
+            'StartExperiencesApp'
+            'Widgets'
+        )) {
         Get-Process -Name $processName -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     }
+
+    Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.MainWindowTitle -match '^(Get Started|Welcome to Windows)\b'
+    } | Stop-Process -Force -ErrorAction SilentlyContinue
+}
+
+function Invoke-UiTestsWelcomeWatchdog {
+    Stop-UiTestsWelcomeProcesses
+
+    foreach ($displayName in @(
+            'Microsoft.Getstarted'
+            'MicrosoftWindows.Client.OOBE'
+            'Microsoft.StartExperiencesApp'
+            'MicrosoftWindows.Client.WebExperience'
+        )) {
+        Get-AppxPackage -Name $displayName -ErrorAction SilentlyContinue | ForEach-Object {
+            $pkg = $_
+            try {
+                Remove-AppxPackage -Package $pkg.PackageFullName -ErrorAction Stop | Out-Null
+            }
+            catch {
+                Write-Verbose "Could not remove $($pkg.PackageFullName): $($_.Exception.Message)"
+            }
+            finally {
+                $global:LASTEXITCODE = 0
+            }
+        }
+    }
+
+    Stop-UiTestsWelcomeProcesses
 }
 
 function Remove-UiTestsAppxPackageSafely {

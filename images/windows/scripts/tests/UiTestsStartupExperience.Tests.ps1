@@ -60,6 +60,13 @@ Describe "UiTests startup experience" {
         $task.Triggers.CimClass.CimClassName | Should -Contain 'MSFT_TaskLogonTrigger'
     }
 
+    It "Startup watchdog scheduled task is registered" {
+        $task = Get-ScheduledTask -TaskName 'DisableUiTestsStartupWatchdog' -ErrorAction SilentlyContinue
+        $task | Should -Not -BeNullOrEmpty
+        $task.Triggers.CimClass.CimClassName | Should -Contain 'MSFT_TaskLogonTrigger'
+        $task.Triggers[0].Repetition.Interval | Should -Be 'PT2M'
+    }
+
     It "Display and system sleep timeouts are disabled" {
         $videoQuery = (& powercfg /query SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 2>&1) | Out-String
         $videoQuery | Should -Match 'Current AC Power Setting Index:\s+0x00000000'

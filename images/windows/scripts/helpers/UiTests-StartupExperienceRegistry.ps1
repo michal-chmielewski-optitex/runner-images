@@ -25,6 +25,7 @@ function Set-UiTestsStartupRegistry {
     Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableWindowsConsumerFeatures -Value 1
     Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableCloudOptimizedContent -Value 1
     Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableConsumerAccountStateContent -Value 1
+    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\CloudContent' -Name DisableWindowsSpotlightFeatures -Value 1
     Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' -Name TurnOffWindowsCopilot -Value 1
     Set-Dword -RelativePath 'SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE' -Name DisablePrivacyExperience -Value 1
     Set-Dword -RelativePath 'SOFTWARE\Microsoft\Windows\CurrentVersion\UserProfileEngagement' -Name ScoobeSystemSettingEnabled -Value 0
@@ -115,6 +116,51 @@ function Register-UiTestsStartupLogonTask {
         -Force | Out-Null
 
     Write-Host "Registered scheduled task '$taskName' (AtLogOn, all users)."
+}
+
+function Register-UiTestsStartupWatchdogTask {
+    $taskName = 'DisableUiTestsStartupWatchdog'
+    $scriptPath = 'C:\post-generation\Disable-UiTestsStartupWatchdog.ps1'
+
+    if (-not (Test-Path $scriptPath)) {
+        Write-Warning "Post-gen watchdog script not found: $scriptPath"
+        return
+    }
+
+    $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if ($existing) {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    }
+
+    $action = New-ScheduledTaskAction `
+        -Execute 'powershell.exe' `
+        -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
+
+    $trigger = New-ScheduledTaskTrigger -AtLogOn
+    $trigger.RepetitionInterval = (New-TimeSpan -Minutes 2)
+    $trigger.RepetitionDuration = (New-TimeSpan -Days 365)
+
+    $settings = New-ScheduledTaskSettingsSet `
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -StartWhenAvailable `
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 1) `
+        -MultipleInstances IgnoreNew
+
+    $principal = New-ScheduledTaskPrincipal `
+        -GroupId 'BUILTIN\Users' `
+        -RunLevel Highest
+
+    Register-ScheduledTask `
+        -TaskName $taskName `
+        -Action $action `
+        -Trigger $trigger `
+        -Settings $settings `
+        -Principal $principal `
+        -Description 'Kill Get Started if it appears during UI test sessions.' `
+        -Force | Out-Null
+
+    Write-Host "Registered scheduled task '$taskName' (AtLogOn, repeat every 2 minutes)."
 }
 
 function Set-UiTestsPowerSettings {
@@ -227,6 +273,7 @@ function Invoke-UiTestsStartupExperienceConfiguration {
 
     Remove-UiTestsDefaultUserConsumerPackages
     Register-UiTestsStartupLogonTask
+    Register-UiTestsStartupWatchdogTask
 }
 
 function Set-UiTestsStartupRunOnce {
