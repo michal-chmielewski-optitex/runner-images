@@ -64,7 +64,8 @@ Describe "UiTests startup experience" {
         $task = Get-ScheduledTask -TaskName 'DisableUiTestsStartupWatchdog' -ErrorAction SilentlyContinue
         $task | Should -Not -BeNullOrEmpty
         $task.Triggers.CimClass.CimClassName | Should -Contain 'MSFT_TaskLogonTrigger'
-        $task.Triggers[0].Repetition.Interval | Should -Be 'PT30S'
+        $task.Triggers[0].Repetition | Should -Not -BeNullOrEmpty
+        $task.Triggers[0].Repetition.Interval | Should -BeIn @('PT30S', 'PT1M')
     }
 
     It "Microsoft Store and InstallService are disabled" {

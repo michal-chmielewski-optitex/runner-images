@@ -176,8 +176,10 @@ function Register-UiTestsStartupWatchdogTask {
         -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
 
     $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $trigger.RepetitionInterval = (New-TimeSpan -Seconds 30)
-    $trigger.RepetitionDuration = (New-TimeSpan -Days 365)
+    $repetitionTemplate = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+        -RepetitionInterval (New-TimeSpan -Seconds 30) `
+        -RepetitionDuration (New-TimeSpan -Days 365)
+    $trigger.Repetition = $repetitionTemplate.Repetition
 
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
