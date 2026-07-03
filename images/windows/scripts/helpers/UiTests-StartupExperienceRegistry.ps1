@@ -118,6 +118,45 @@ function Register-UiTestsStartupLogonTask {
     Write-Host "Registered scheduled task '$taskName' (AtLogOn, all users)."
 }
 
+function Set-UiTestsStoreInstallDisabled {
+    Write-Host 'Disabling Microsoft Store, AppX user installs, and InstallService.'
+
+    $storePolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore'
+    if (-not (Test-Path $storePolicyPath)) {
+        New-Item -Path $storePolicyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $storePolicyPath -Name RemoveWindowsStore -Value 1 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $storePolicyPath -Name DisableStoreApps -Value 1 -PropertyType DWord -Force | Out-Null
+    New-ItemProperty -Path $storePolicyPath -Name AutoDownload -Value 4 -PropertyType DWord -Force | Out-Null
+
+    $appxPolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Appx'
+    if (-not (Test-Path $appxPolicyPath)) {
+        New-Item -Path $appxPolicyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $appxPolicyPath -Name BlockNonAdminUserInstall -Value 1 -PropertyType DWord -Force | Out-Null
+
+    foreach ($serviceName in @('InstallService', 'WSService')) {
+        $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($null -eq $service) {
+            continue
+        }
+
+        if ($service.Status -eq 'Running') {
+            Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+        }
+        Set-Service -Name $serviceName -StartupType Disabled -ErrorAction SilentlyContinue
+        Write-Host "Disabled service: $serviceName"
+    }
+}
+
+function Stop-UiTestsStoreInstallServices {
+    foreach ($serviceName in @('InstallService', 'WSService')) {
+        Get-Service -Name $serviceName -ErrorAction SilentlyContinue |
+            Where-Object { $_.Status -eq 'Running' } |
+            Stop-Service -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Register-UiTestsStartupWatchdogTask {
     $taskName = 'DisableUiTestsStartupWatchdog'
     $scriptPath = 'C:\post-generation\Disable-UiTestsStartupWatchdog.ps1'
@@ -137,14 +176,14 @@ function Register-UiTestsStartupWatchdogTask {
         -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
 
     $trigger = New-ScheduledTaskTrigger -AtLogOn
-    $trigger.RepetitionInterval = (New-TimeSpan -Minutes 2)
+    $trigger.RepetitionInterval = (New-TimeSpan -Seconds 30)
     $trigger.RepetitionDuration = (New-TimeSpan -Days 365)
 
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
         -StartWhenAvailable `
-        -ExecutionTimeLimit (New-TimeSpan -Minutes 1) `
+        -ExecutionTimeLimit (New-TimeSpan -Seconds 25) `
         -MultipleInstances IgnoreNew
 
     $principal = New-ScheduledTaskPrincipal `
@@ -160,7 +199,7 @@ function Register-UiTestsStartupWatchdogTask {
         -Description 'Kill Get Started if it appears during UI test sessions.' `
         -Force | Out-Null
 
-    Write-Host "Registered scheduled task '$taskName' (AtLogOn, repeat every 2 minutes)."
+    Write-Host "Registered scheduled task '$taskName' (AtLogOn, repeat every 30 seconds)."
 }
 
 function Set-UiTestsPowerSettings {
@@ -255,6 +294,7 @@ function Set-UiTestsScreensaverDisabled {
 function Invoke-UiTestsStartupExperienceConfiguration {
     Stop-UiTestsWelcomeProcesses
     Set-UiTestsPowerSettings
+    Set-UiTestsStoreInstallDisabled
     Set-UiTestsStartupRegistry -RootKey 'HKLM:'
 
     Mount-RegistryHive `

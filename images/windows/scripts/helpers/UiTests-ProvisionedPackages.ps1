@@ -57,6 +57,7 @@ function Stop-UiTestsWelcomeProcesses {
 
 function Invoke-UiTestsWelcomeWatchdog {
     Stop-UiTestsWelcomeProcesses
+    Stop-UiTestsStoreInstallServices
 
     foreach ($displayName in @(
             'Microsoft.Getstarted'

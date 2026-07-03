@@ -29,6 +29,7 @@ if (Test-Path $packagesScript) {
 if (Test-Path $registryScript) {
     . $registryScript
     Set-UiTestsPowerSettings
+    Set-UiTestsStoreInstallDisabled
     Set-UiTestsStartupRegistry -RootKey 'HKCU:'
     Set-UiTestsScreensaverDisabled -RootKey 'HKCU:'
     Clear-UiTestsGetStartedRunOnce -RootKey 'HKCU:'

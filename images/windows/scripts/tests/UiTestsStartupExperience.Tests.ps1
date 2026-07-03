@@ -64,7 +64,18 @@ Describe "UiTests startup experience" {
         $task = Get-ScheduledTask -TaskName 'DisableUiTestsStartupWatchdog' -ErrorAction SilentlyContinue
         $task | Should -Not -BeNullOrEmpty
         $task.Triggers.CimClass.CimClassName | Should -Contain 'MSFT_TaskLogonTrigger'
-        $task.Triggers[0].Repetition.Interval | Should -Be 'PT2M'
+        $task.Triggers[0].Repetition.Interval | Should -Be 'PT30S'
+    }
+
+    It "Microsoft Store and InstallService are disabled" {
+        $storePath = 'HKLM:\SOFTWARE\Policies\Microsoft\WindowsStore'
+        (Get-ItemProperty -Path $storePath).RemoveWindowsStore | Should -Be 1
+        (Get-ItemProperty -Path $storePath).DisableStoreApps | Should -Be 1
+
+        $appxPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Appx'
+        (Get-ItemProperty -Path $appxPath).BlockNonAdminUserInstall | Should -Be 1
+
+        (Get-Service -Name InstallService).StartType | Should -Be 'Disabled'
     }
 
     It "Display and system sleep timeouts are disabled" {
