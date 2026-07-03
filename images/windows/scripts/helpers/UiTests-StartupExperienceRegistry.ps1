@@ -117,8 +117,59 @@ function Register-UiTestsStartupLogonTask {
     Write-Host "Registered scheduled task '$taskName' (AtLogOn, all users)."
 }
 
+function Set-UiTestsPowerSettings {
+    Write-Host 'Configuring power settings: disable display sleep and system standby.'
+
+    $highPerformanceGuid = '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c'
+    & powercfg /setactive $highPerformanceGuid 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning 'High performance power plan is unavailable; applying timeouts to the active plan.'
+    }
+    $global:LASTEXITCODE = 0
+
+    foreach ($setting in @(
+            'monitor-timeout-ac'
+            'monitor-timeout-dc'
+            'standby-timeout-ac'
+            'standby-timeout-dc'
+            'hibernate-timeout-ac'
+            'hibernate-timeout-dc'
+            'disk-timeout-ac'
+            'disk-timeout-dc'
+        )) {
+        & powercfg /change $setting 0 | Out-Null
+        $global:LASTEXITCODE = 0
+    }
+
+    $policyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop'
+    if (-not (Test-Path $policyPath)) {
+        New-Item -Path $policyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $policyPath -Name ScreenSaveActive -Value '0' -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $policyPath -Name ScreenSaveTimeOut -Value '0' -PropertyType String -Force | Out-Null
+}
+
+function Set-UiTestsScreensaverDisabled {
+    param([string]$RootKey)
+
+    $useRegExe = $RootKey -eq 'HKLM:\DEFAULT'
+    $desktopPath = "$RootKey\Control Panel\Desktop"
+
+    foreach ($entry in @(
+            @{ Name = 'ScreenSaveActive'; Value = '0' }
+            @{ Name = 'ScreenSaveTimeOut'; Value = '0' }
+        )) {
+        Set-RegistryKeyString `
+            -KeyPath $desktopPath `
+            -Name $entry.Name `
+            -Value $entry.Value `
+            -UseRegExe:$useRegExe
+    }
+}
+
 function Invoke-UiTestsStartupExperienceConfiguration {
     Stop-UiTestsWelcomeProcesses
+    Set-UiTestsPowerSettings
     Set-UiTestsStartupRegistry -RootKey 'HKLM:'
 
     Mount-RegistryHive `
@@ -127,6 +178,7 @@ function Invoke-UiTestsStartupExperienceConfiguration {
 
     try {
         Set-UiTestsStartupRegistry -RootKey 'HKLM:\DEFAULT'
+        Set-UiTestsScreensaverDisabled -RootKey 'HKLM:\DEFAULT'
         Set-UiTestsStartupRunOnce -RootKey 'HKLM:\DEFAULT'
         Clear-UiTestsGetStartedRunOnce -RootKey 'HKLM:\DEFAULT'
     }

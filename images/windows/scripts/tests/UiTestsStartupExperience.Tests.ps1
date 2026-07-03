@@ -59,4 +59,33 @@ Describe "UiTests startup experience" {
         $task | Should -Not -BeNullOrEmpty
         $task.Triggers.CimClass.CimClassName | Should -Contain 'MSFT_TaskLogonTrigger'
     }
+
+    It "Display and system sleep timeouts are disabled" {
+        $videoQuery = (& powercfg /query SCHEME_CURRENT SUB_VIDEO VIDEOIDLE 2>&1) | Out-String
+        $videoQuery | Should -Match 'Current AC Power Setting Index:\s+0x00000000'
+
+        $sleepQuery = (& powercfg /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE 2>&1) | Out-String
+        $sleepQuery | Should -Match 'Current AC Power Setting Index:\s+0x00000000'
+    }
+
+    It "Screensaver is disabled by policy" {
+        $path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Control Panel\Desktop'
+        (Get-ItemProperty -Path $path).ScreenSaveActive | Should -Be '0'
+        (Get-ItemProperty -Path $path).ScreenSaveTimeOut | Should -Be '0'
+    }
+
+    It "Screensaver is disabled in default user profile" {
+        Mount-RegistryHive `
+            -FileName 'C:\Users\Default\NTUSER.DAT' `
+            -SubKey 'HKLM\DEFAULT'
+
+        try {
+            $desktopPath = 'HKLM:\DEFAULT\Control Panel\Desktop'
+            (Get-ItemProperty -Path $desktopPath).ScreenSaveActive | Should -Be '0'
+            (Get-ItemProperty -Path $desktopPath).ScreenSaveTimeOut | Should -Be '0'
+        }
+        finally {
+            Dismount-RegistryHive 'HKLM\DEFAULT'
+        }
+    }
 }
