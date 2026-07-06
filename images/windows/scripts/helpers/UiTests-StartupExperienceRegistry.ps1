@@ -31,7 +31,9 @@ function Set-UiTestsStartupRegistry {
     Set-Dword -RelativePath 'SOFTWARE\Microsoft\Windows\CurrentVersion\UserProfileEngagement' -Name ScoobeSystemSettingEnabled -Value 0
     Set-Dword -RelativePath 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name StartShownOnUpgrade -Value 0
     Set-Dword -RelativePath 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name Start_IrisRecommendations -Value 0
+    Set-Dword -RelativePath 'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name Start_Layout -Value 1
     Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\Explorer' -Name HideRecentlyAddedApps -Value 1
+    Set-Dword -RelativePath 'SOFTWARE\Policies\Microsoft\Windows\Explorer' -Name HideRecommendedSection -Value 1
 
     foreach ($name in @(
             'SubscribedContent-310093Enabled'
@@ -197,7 +199,7 @@ function Register-UiTestsStartupWatchdogTask {
         -Description 'Start background Get Started watchdog loop on interactive UI test agents.' `
         -Force | Out-Null
 
-    Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 30-second watchdog loop)."
+    Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 10-second watchdog loop)."
 }
 
 function Invoke-UiTestsPowerCfg {
@@ -301,10 +303,19 @@ function Set-UiTestsScreensaverDisabled {
     }
 }
 
+function Set-UiTestsStartMenuPolicyOverrides {
+    $policyManagerStart = 'HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\Start'
+    if (-not (Test-Path $policyManagerStart)) {
+        New-Item -Path $policyManagerStart -Force | Out-Null
+    }
+    New-ItemProperty -Path $policyManagerStart -Name HideRecommendedSection -Value 1 -PropertyType DWord -Force | Out-Null
+}
+
 function Invoke-UiTestsStartupExperienceConfiguration {
     Stop-UiTestsWelcomeProcesses
     Set-UiTestsPowerSettings
     Set-UiTestsStoreInstallDisabled
+    Set-UiTestsStartMenuPolicyOverrides
     Set-UiTestsStartupRegistry -RootKey 'HKLM:'
 
     Mount-RegistryHive `

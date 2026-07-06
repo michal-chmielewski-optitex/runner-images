@@ -24,6 +24,28 @@ Describe "UiTests startup experience" {
         (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer').HideRecentlyAddedApps | Should -Be 1
     }
 
+    It "Start menu recommended section is hidden by policy" {
+        $explorerPolicy = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer'
+        $explorerPolicy.HideRecommendedSection | Should -Be 1
+
+        $policyManagerStart = 'HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\Start'
+        (Get-ItemProperty -Path $policyManagerStart).HideRecommendedSection | Should -Be 1
+    }
+
+    It "Start menu uses more-pins layout in default user profile" {
+        Mount-RegistryHive `
+            -FileName 'C:\Users\Default\NTUSER.DAT' `
+            -SubKey 'HKLM\DEFAULT'
+
+        try {
+            $advancedPath = 'HKLM:\DEFAULT\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+            (Get-ItemProperty -Path $advancedPath).Start_Layout | Should -Be 1
+        }
+        finally {
+            Dismount-RegistryHive 'HKLM\DEFAULT'
+        }
+    }
+
     It "Get Started provisioned packages are removed" {
         $remaining = Get-AppxProvisionedPackage -Online |
             Where-Object { $_.DisplayName -in @('Microsoft.Getstarted', 'MicrosoftWindows.Client.OOBE') }

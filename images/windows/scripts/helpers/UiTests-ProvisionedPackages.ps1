@@ -39,6 +39,112 @@ $script:UiTestsSysprepBlockerPackages = @(
     'Microsoft.StartExperiencesApp'
 )
 
+function Initialize-UiTestsShellInputHelpers {
+    if ([System.Management.Automation.PSTypeName]'UiTestsShellInput'.Type) {
+        return
+    }
+
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class UiTestsShellInput {
+    public const byte VkEscape = 0x1B;
+    public const byte VkLWin = 0x5B;
+    public const uint KeyeventfKeyup = 0x0002;
+
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+}
+"@
+}
+
+function Write-UiTestsWatchdogLog {
+    param([string]$Message)
+
+    $logPath = Join-Path $env:TEMP 'UiTestsStartupWatchdog.log'
+    $line = '{0:u} {1}' -f (Get-Date), $Message
+    Add-Content -Path $logPath -Value $line -ErrorAction SilentlyContinue
+}
+
+function Test-UiTestsStartMenuOpen {
+    Initialize-UiTestsShellInputHelpers
+
+    $hwnd = [UiTestsShellInput]::GetForegroundWindow()
+    if ($hwnd -eq [IntPtr]::Zero) {
+        return $false
+    }
+
+    $processId = [uint32]0
+    [void][UiTestsShellInput]::GetWindowThreadProcessId($hwnd, [ref]$processId)
+    if ($processId -eq 0) {
+        return $false
+    }
+
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        return $false
+    }
+
+    if ($process.ProcessName -in @('StartMenuExperienceHost', 'SearchHost')) {
+        return $true
+    }
+
+    $className = New-Object System.Text.StringBuilder 256
+    [void][UiTestsShellInput]::GetClassName($hwnd, $className, $className.Capacity)
+    if ($className.ToString() -match 'Windows\.UI\.Core\.CoreWindow' -and
+        $process.ProcessName -in @('ShellExperienceHost', 'StartMenuExperienceHost', 'SearchHost')) {
+        return $true
+    }
+
+    return $false
+}
+
+function Send-UiTestsKeyPress {
+    param(
+        [Parameter(Mandatory = $true)]
+        [byte] $VirtualKey
+    )
+
+    Initialize-UiTestsShellInputHelpers
+    [UiTestsShellInput]::keybd_event($VirtualKey, 0, 0, [UIntPtr]::Zero)
+    [UiTestsShellInput]::keybd_event($VirtualKey, 0, [UiTestsShellInput]::KeyeventfKeyup, [UIntPtr]::Zero)
+}
+
+function Dismiss-UiTestsStartMenu {
+    if (-not (Test-UiTestsStartMenuOpen)) {
+        return $false
+    }
+
+    Send-UiTestsKeyPress -VirtualKey ([UiTestsShellInput]::VkEscape)
+    Start-Sleep -Milliseconds 200
+
+    if (Test-UiTestsStartMenuOpen) {
+        Send-UiTestsKeyPress -VirtualKey ([UiTestsShellInput]::VkLWin)
+        Start-Sleep -Milliseconds 200
+    }
+
+    $dismissed = -not (Test-UiTestsStartMenuOpen)
+    if ($dismissed) {
+        Write-UiTestsWatchdogLog 'Dismissed open Start menu (Escape/Win).'
+    }
+    else {
+        Write-UiTestsWatchdogLog 'Start menu still open after Escape/Win.'
+    }
+
+    return $dismissed
+}
+
 function Stop-UiTestsWelcomeProcesses {
     foreach ($processName in @(
             'GetStarted'
@@ -56,9 +162,27 @@ function Stop-UiTestsWelcomeProcesses {
 }
 
 function Invoke-UiTestsWelcomeWatchdog {
+    $actions = [System.Collections.Generic.List[string]]::new()
+
+    if (Dismiss-UiTestsStartMenu) {
+        $actions.Add('dismissed-start-menu')
+    }
+
+    $welcomeProcesses = @(
+        'GetStarted'
+        'OOBE'
+        'WebExperienceHost'
+        'StartExperiencesApp'
+        'Widgets'
+    )
+    $runningWelcome = @($welcomeProcesses | Where-Object {
+        $null -ne (Get-Process -Name $_ -ErrorAction SilentlyContinue)
+    })
+
     Stop-UiTestsWelcomeProcesses
     Stop-UiTestsStoreInstallServices
 
+    $removedPackages = [System.Collections.Generic.List[string]]::new()
     foreach ($displayName in @(
             'Microsoft.Getstarted'
             'MicrosoftWindows.Client.OOBE'
@@ -69,6 +193,7 @@ function Invoke-UiTestsWelcomeWatchdog {
             $pkg = $_
             try {
                 Remove-AppxPackage -Package $pkg.PackageFullName -ErrorAction Stop | Out-Null
+                $removedPackages.Add($pkg.Name)
             }
             catch {
                 Write-Verbose "Could not remove $($pkg.PackageFullName): $($_.Exception.Message)"
@@ -80,6 +205,20 @@ function Invoke-UiTestsWelcomeWatchdog {
     }
 
     Stop-UiTestsWelcomeProcesses
+
+    if ($runningWelcome.Count -gt 0 -or $removedPackages.Count -gt 0 -or $actions.Count -gt 0) {
+        $details = @()
+        if ($actions.Count -gt 0) {
+            $details += "actions=$($actions -join ',')"
+        }
+        if ($runningWelcome.Count -gt 0) {
+            $details += "stopped=$($runningWelcome -join ',')"
+        }
+        if ($removedPackages.Count -gt 0) {
+            $details += "removed=$($removedPackages -join ',')"
+        }
+        Write-UiTestsWatchdogLog ($details -join '; ')
+    }
 }
 
 function Remove-UiTestsAppxPackageSafely {
