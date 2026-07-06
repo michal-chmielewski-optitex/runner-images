@@ -199,7 +199,7 @@ function Register-UiTestsStartupWatchdogTask {
         -Description 'Start background Get Started watchdog loop on interactive UI test agents.' `
         -Force | Out-Null
 
-    Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 10-second watchdog loop)."
+    Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 5-second watchdog loop)."
 }
 
 function Invoke-UiTestsPowerCfg {
@@ -311,11 +311,48 @@ function Set-UiTestsStartMenuPolicyOverrides {
     New-ItemProperty -Path $policyManagerStart -Name HideRecommendedSection -Value 1 -PropertyType DWord -Force | Out-Null
 }
 
+function Set-UiTestsNarratorDisabled {
+    Write-Host 'Disabling Windows Narrator on UI test agents.'
+
+    $accessibilityPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Accessibility'
+    if (-not (Test-Path $accessibilityPath)) {
+        New-Item -Path $accessibilityPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $accessibilityPath -Name Configuration -Value '' -Force | Out-Null
+
+    $ifeoPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\Narrator.exe'
+    if (-not (Test-Path $ifeoPath)) {
+        New-Item -Path $ifeoPath -Force | Out-Null
+    }
+    Set-ItemProperty -Path $ifeoPath -Name Debugger -Value '%1' -PropertyType String -Force | Out-Null
+
+    Get-Process -Name Narrator -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
+
+function Set-UiTestsNarratorUserRegistry {
+    param([string]$RootKey)
+
+    $useRegExe = $RootKey -eq 'HKLM:\DEFAULT'
+
+    Set-RegistryKeyDword `
+        -KeyPath "$RootKey\Software\Microsoft\Narrator\NoRoam" `
+        -Name WinEnterLaunchEnabled `
+        -Value 0 `
+        -UseRegExe:$useRegExe
+
+    Set-RegistryKeyDword `
+        -KeyPath "$RootKey\Software\Microsoft\Narrator" `
+        -Name OnlineServicesEnabled `
+        -Value 0 `
+        -UseRegExe:$useRegExe
+}
+
 function Invoke-UiTestsStartupExperienceConfiguration {
     Stop-UiTestsWelcomeProcesses
     Set-UiTestsPowerSettings
     Set-UiTestsStoreInstallDisabled
     Set-UiTestsStartMenuPolicyOverrides
+    Set-UiTestsNarratorDisabled
     Set-UiTestsStartupRegistry -RootKey 'HKLM:'
 
     Mount-RegistryHive `
@@ -325,6 +362,7 @@ function Invoke-UiTestsStartupExperienceConfiguration {
     try {
         Set-UiTestsStartupRegistry -RootKey 'HKLM:\DEFAULT'
         Set-UiTestsScreensaverDisabled -RootKey 'HKLM:\DEFAULT'
+        Set-UiTestsNarratorUserRegistry -RootKey 'HKLM:\DEFAULT'
         Set-UiTestsStartupRunOnce -RootKey 'HKLM:\DEFAULT'
         Clear-UiTestsGetStartedRunOnce -RootKey 'HKLM:\DEFAULT'
     }

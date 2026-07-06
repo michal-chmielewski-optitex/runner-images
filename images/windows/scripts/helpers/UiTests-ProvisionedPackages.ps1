@@ -46,6 +46,7 @@ function Initialize-UiTestsShellInputHelpers {
 
     Add-Type @"
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -53,6 +54,20 @@ public static class UiTestsShellInput {
     public const byte VkEscape = 0x1B;
     public const byte VkLWin = 0x5B;
     public const uint KeyeventfKeyup = 0x0002;
+
+    private static bool startMenuVisibleFound;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Rect {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+        public int Width { get { return Right - Left; } }
+        public int Height { get { return Bottom - Top; } }
+    }
+
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
@@ -64,7 +79,55 @@ public static class UiTestsShellInput {
     public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     [DllImport("user32.dll")]
+    public static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumWindows(EnumWindowsProc lpEnum, IntPtr lParam);
+
+    [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+
+    public static bool EnumStartMenuWindowCallback(IntPtr hWnd, IntPtr lParam) {
+        if (!IsWindowVisible(hWnd)) {
+            return true;
+        }
+
+        uint processId;
+        GetWindowThreadProcessId(hWnd, out processId);
+        if (processId == 0) {
+            return true;
+        }
+
+        try {
+            Process process = Process.GetProcessById((int)processId);
+            if (process.ProcessName != "StartMenuExperienceHost" && process.ProcessName != "SearchHost") {
+                return true;
+            }
+
+            Rect rect;
+            if (!GetWindowRect(hWnd, out rect)) {
+                return true;
+            }
+
+            if (rect.Width >= 200 && rect.Height >= 200) {
+                startMenuVisibleFound = true;
+                return false;
+            }
+        }
+        catch {
+        }
+
+        return true;
+    }
+
+    public static bool IsStartMenuVisible() {
+        startMenuVisibleFound = false;
+        EnumWindows(new EnumWindowsProc(EnumStartMenuWindowCallback), IntPtr.Zero);
+        return startMenuVisibleFound;
+    }
 }
 "@
 }
@@ -79,6 +142,10 @@ function Write-UiTestsWatchdogLog {
 
 function Test-UiTestsStartMenuOpen {
     Initialize-UiTestsShellInputHelpers
+
+    if ([UiTestsShellInput]::IsStartMenuVisible()) {
+        return $true
+    }
 
     $hwnd = [UiTestsShellInput]::GetForegroundWindow()
     if ($hwnd -eq [IntPtr]::Zero) {
@@ -145,6 +212,28 @@ function Dismiss-UiTestsStartMenu {
     return $dismissed
 }
 
+function Stop-UiTestsNarrator {
+    $narratorProcesses = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.ProcessName -eq 'Narrator' -or $_.MainWindowTitle -match '\bNarrator\b'
+    })
+
+    if ($narratorProcesses.Count -eq 0) {
+        return $false
+    }
+
+    foreach ($process in $narratorProcesses) {
+        if ($process.MainWindowHandle -ne 0) {
+            Send-UiTestsKeyPress -VirtualKey ([UiTestsShellInput]::VkEscape)
+            Start-Sleep -Milliseconds 100
+        }
+
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-UiTestsWatchdogLog ("Stopped Narrator processes: {0}" -f ($narratorProcesses.ProcessName -join ', '))
+    return $true
+}
+
 function Stop-UiTestsWelcomeProcesses {
     foreach ($processName in @(
             'GetStarted'
@@ -163,6 +252,10 @@ function Stop-UiTestsWelcomeProcesses {
 
 function Invoke-UiTestsWelcomeWatchdog {
     $actions = [System.Collections.Generic.List[string]]::new()
+
+    if (Stop-UiTestsNarrator) {
+        $actions.Add('stopped-narrator')
+    }
 
     if (Dismiss-UiTestsStartMenu) {
         $actions.Add('dismissed-start-menu')

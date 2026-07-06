@@ -46,6 +46,23 @@ Describe "UiTests startup experience" {
         }
     }
 
+    It "Narrator is disabled on UI test agents" {
+        $ifeoPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\Narrator.exe'
+        (Get-ItemProperty -Path $ifeoPath).Debugger | Should -Be '%1'
+
+        Mount-RegistryHive `
+            -FileName 'C:\Users\Default\NTUSER.DAT' `
+            -SubKey 'HKLM\DEFAULT'
+
+        try {
+            $narratorPath = 'HKLM:\DEFAULT\Software\Microsoft\Narrator\NoRoam'
+            (Get-ItemProperty -Path $narratorPath).WinEnterLaunchEnabled | Should -Be 0
+        }
+        finally {
+            Dismount-RegistryHive 'HKLM\DEFAULT'
+        }
+    }
+
     It "Get Started provisioned packages are removed" {
         $remaining = Get-AppxProvisionedPackage -Online |
             Where-Object { $_.DisplayName -in @('Microsoft.Getstarted', 'MicrosoftWindows.Client.OOBE') }
