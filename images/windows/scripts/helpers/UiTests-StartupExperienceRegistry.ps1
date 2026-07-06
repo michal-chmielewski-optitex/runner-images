@@ -324,7 +324,7 @@ function Set-UiTestsNarratorDisabled {
     if (-not (Test-Path $ifeoPath)) {
         New-Item -Path $ifeoPath -Force | Out-Null
     }
-    Set-ItemProperty -Path $ifeoPath -Name Debugger -Value '%1' -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path $ifeoPath -Name Debugger -Value '%1' -PropertyType String -Force | Out-Null
 
     Get-Process -Name Narrator -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 }
