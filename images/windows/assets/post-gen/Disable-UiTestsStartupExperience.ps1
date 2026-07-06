@@ -35,4 +35,7 @@ if (Test-Path $registryScript) {
     Clear-UiTestsGetStartedRunOnce -RootKey 'HKCU:'
 }
 
-Stop-UiTestsWelcomeProcesses
+if (Test-Path $packagesScript) {
+    . $packagesScript
+    Invoke-UiTestsWelcomeWatchdog
+}
