@@ -1,7 +1,7 @@
 {
     "toolcache": [],
     "powershellModules": [
-        { "name": "Pester" },
+        { "name": "Pester", "versions": [ "5.8.0" ] },
         { "name": "PowerShellGet" },
         { "name": "VSSetup" }
     ],

@@ -23,12 +23,14 @@ Describe "Dotnet SDK and tools" {
         }
     }
 
-    Context "Dotnet tools" {
-        $env:Path += ";C:\Users\Default\.dotnet\tools"
-        $testCases = $dotnetTools | ForEach-Object { @{ ToolName = $_.name; TestInstance = $_.test }}
+    if (@($dotnetTools).Count -gt 0) {
+        Context "Dotnet tools" {
+            $env:Path += ";C:\Users\Default\.dotnet\tools"
+            $testCases = $dotnetTools | ForEach-Object { @{ ToolName = $_.name; TestInstance = $_.test }}
 
-        It "<ToolName> is available" -TestCases $testCases {
-            "$TestInstance" | Should -ReturnZeroExitCode
+            It "<ToolName> is available" -TestCases $testCases {
+                "$TestInstance" | Should -ReturnZeroExitCode
+            }
         }
     }
 }
