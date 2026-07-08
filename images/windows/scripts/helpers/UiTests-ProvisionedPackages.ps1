@@ -212,6 +212,28 @@ function Dismiss-UiTestsStartMenu {
     return $dismissed
 }
 
+function Stop-UiTestsMicrosoftAccountPrompts {
+    $prompts = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.MainWindowTitle -match '^(Sign in|Sign-in|Microsoft account|Let''s finish setting up)\b'
+    })
+
+    if ($prompts.Count -eq 0) {
+        return $false
+    }
+
+    foreach ($process in $prompts) {
+        if ($process.MainWindowHandle -ne 0) {
+            Send-UiTestsKeyPress -VirtualKey ([UiTestsShellInput]::VkEscape)
+            Start-Sleep -Milliseconds 100
+        }
+
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
+
+    Write-UiTestsWatchdogLog ("Closed Microsoft account prompts: {0}" -f ($prompts.ProcessName -join ', '))
+    return $true
+}
+
 function Stop-UiTestsNarrator {
     $narratorProcesses = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
         $_.ProcessName -eq 'Narrator' -or $_.MainWindowTitle -match '\bNarrator\b'
@@ -252,6 +274,10 @@ function Stop-UiTestsWelcomeProcesses {
 
 function Invoke-UiTestsWelcomeWatchdog {
     $actions = [System.Collections.Generic.List[string]]::new()
+
+    if (Stop-UiTestsMicrosoftAccountPrompts) {
+        $actions.Add('closed-ms-account-prompt')
+    }
 
     if (Stop-UiTestsNarrator) {
         $actions.Add('stopped-narrator')

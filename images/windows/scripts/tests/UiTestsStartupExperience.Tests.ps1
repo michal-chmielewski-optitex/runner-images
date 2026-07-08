@@ -46,6 +46,13 @@ Describe "UiTests startup experience" {
         }
     }
 
+    It "Microsoft account sign-in prompts are disabled" {
+        (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System').NoConnectedUser | Should -Be 1
+
+        $allowYourAccount = 'HKLM:\SOFTWARE\Microsoft\PolicyManager\default\Settings\AllowYourAccount'
+        (Get-ItemProperty -Path $allowYourAccount).value | Should -Be 0
+    }
+
     It "Narrator is disabled on UI test agents" {
         $ifeoPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\Narrator.exe'
         (Get-ItemProperty -Path $ifeoPath).Debugger | Should -Be '%1'

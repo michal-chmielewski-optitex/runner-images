@@ -311,6 +311,32 @@ function Set-UiTestsStartMenuPolicyOverrides {
     New-ItemProperty -Path $policyManagerStart -Name HideRecommendedSection -Value 1 -PropertyType DWord -Force | Out-Null
 }
 
+function Set-UiTestsMicrosoftAccountPromptsDisabled {
+    Write-Host 'Disabling Microsoft account sign-in prompts on UI test agents.'
+
+    $systemPolicyPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+    if (-not (Test-Path $systemPolicyPath)) {
+        New-Item -Path $systemPolicyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $systemPolicyPath -Name NoConnectedUser -Value 1 -PropertyType DWord -Force | Out-Null
+
+    foreach ($policyPath in @(
+            'HKLM:\SOFTWARE\Microsoft\PolicyManager\default\Settings\AllowYourAccount'
+            'HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\Settings\AllowYourAccount'
+        )) {
+        if (-not (Test-Path $policyPath)) {
+            New-Item -Path $policyPath -Force | Out-Null
+        }
+        New-ItemProperty -Path $policyPath -Name value -Value 0 -PropertyType DWord -Force | Out-Null
+    }
+
+    $accountsPolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Accounts'
+    if (-not (Test-Path $accountsPolicyPath)) {
+        New-Item -Path $accountsPolicyPath -Force | Out-Null
+    }
+    New-ItemProperty -Path $accountsPolicyPath -Name AllowYourAccount -Value 0 -PropertyType DWord -Force | Out-Null
+}
+
 function Set-UiTestsNarratorDisabled {
     Write-Host 'Disabling Windows Narrator on UI test agents.'
 
@@ -352,6 +378,7 @@ function Invoke-UiTestsStartupExperienceConfiguration {
     Set-UiTestsPowerSettings
     Set-UiTestsStoreInstallDisabled
     Set-UiTestsStartMenuPolicyOverrides
+    Set-UiTestsMicrosoftAccountPromptsDisabled
     Set-UiTestsNarratorDisabled
     Set-UiTestsStartupRegistry -RootKey 'HKLM:'
 
