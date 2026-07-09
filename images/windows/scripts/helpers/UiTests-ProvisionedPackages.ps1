@@ -90,6 +90,9 @@ public static class UiTestsShellInput {
     [DllImport("user32.dll")]
     public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
+    [DllImport("user32.dll")]
+    public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+
     public static bool EnumStartMenuWindowCallback(IntPtr hWnd, IntPtr lParam) {
         if (!IsWindowVisible(hWnd)) {
             return true;
@@ -188,9 +191,53 @@ function Send-UiTestsKeyPress {
     [UiTestsShellInput]::keybd_event($VirtualKey, 0, [UiTestsShellInput]::KeyeventfKeyup, [UIntPtr]::Zero)
 }
 
+function Test-UiTestsInstallerUiActive {
+    @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_.MainWindowTitle) -and
+        $_.MainWindowTitle -match '(InstallShield Wizard|Optitex| - Setup\b)'
+    }).Count -gt 0
+}
+
+function Stop-UiTestsStartMenuProcesses {
+    $stopped = $false
+
+    foreach ($processName in @('StartMenuExperienceHost', 'SearchHost')) {
+        $processes = @(Get-Process -Name $processName -ErrorAction SilentlyContinue)
+        if ($processes.Count -eq 0) {
+            continue
+        }
+
+        $processes | Stop-Process -Force -ErrorAction SilentlyContinue
+        $stopped = $true
+    }
+
+    if ($stopped) {
+        Write-UiTestsWatchdogLog 'Stopped Start menu host processes.'
+    }
+
+    return $stopped
+}
+
 function Dismiss-UiTestsStartMenu {
     if (-not (Test-UiTestsStartMenuOpen)) {
-        return $false
+        if (-not (Test-UiTestsInstallerUiActive)) {
+            return $false
+        }
+
+        # Installer UI is active but detection missed the open menu — still clear shell hosts.
+        Stop-UiTestsStartMenuProcesses | Out-Null
+        Start-Sleep -Milliseconds 200
+        return -not (Test-UiTestsStartMenuOpen)
+    }
+
+    $installerActive = Test-UiTestsInstallerUiActive
+    if ($installerActive) {
+        Stop-UiTestsStartMenuProcesses | Out-Null
+        Start-Sleep -Milliseconds 200
+        if (-not (Test-UiTestsStartMenuOpen)) {
+            Write-UiTestsWatchdogLog 'Dismissed Start menu covering installer UI (kill-host).'
+            return $true
+        }
     }
 
     Send-UiTestsKeyPress -VirtualKey ([UiTestsShellInput]::VkEscape)
@@ -201,15 +248,47 @@ function Dismiss-UiTestsStartMenu {
         Start-Sleep -Milliseconds 200
     }
 
+    if (Test-UiTestsStartMenuOpen) {
+        Stop-UiTestsStartMenuProcesses | Out-Null
+        Start-Sleep -Milliseconds 300
+    }
+
     $dismissed = -not (Test-UiTestsStartMenuOpen)
     if ($dismissed) {
-        Write-UiTestsWatchdogLog 'Dismissed open Start menu (Escape/Win).'
+        Write-UiTestsWatchdogLog 'Dismissed open Start menu (Escape/Win/kill-host).'
     }
     else {
-        Write-UiTestsWatchdogLog 'Start menu still open after Escape/Win.'
+        Write-UiTestsWatchdogLog 'Start menu still open after Escape/Win/kill-host.'
     }
 
     return $dismissed
+}
+
+function Stop-UiTestsVisualStudioSignInPrompts {
+    $prompts = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+        $_.MainWindowTitle -match '^Sign in to Visual Studio\b'
+    })
+
+    if ($prompts.Count -eq 0) {
+        return $false
+    }
+
+    Initialize-UiTestsShellInputHelpers
+
+    foreach ($process in $prompts) {
+        if ($process.MainWindowHandle -ne 0) {
+            [void][UiTestsShellInput]::PostMessage([IntPtr]$process.MainWindowHandle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+            Start-Sleep -Milliseconds 200
+        }
+
+        if (-not $process.HasExited) {
+            Send-UiTestsKeyPress -VirtualKey ([UiTestsShellInput]::VkEscape)
+            Start-Sleep -Milliseconds 100
+        }
+    }
+
+    Write-UiTestsWatchdogLog ("Closed Visual Studio sign-in prompts: {0}" -f ($prompts.ProcessName -join ', '))
+    return $true
 }
 
 function Stop-UiTestsMicrosoftAccountPrompts {
@@ -275,16 +354,21 @@ function Stop-UiTestsWelcomeProcesses {
 function Invoke-UiTestsWelcomeWatchdog {
     $actions = [System.Collections.Generic.List[string]]::new()
 
+    # Start menu has highest priority — it covers Optitex InstallShield and other test UIs.
+    if (Dismiss-UiTestsStartMenu) {
+        $actions.Add('dismissed-start-menu')
+    }
+
+    if (Stop-UiTestsVisualStudioSignInPrompts) {
+        $actions.Add('closed-vs-sign-in')
+    }
+
     if (Stop-UiTestsMicrosoftAccountPrompts) {
         $actions.Add('closed-ms-account-prompt')
     }
 
     if (Stop-UiTestsNarrator) {
         $actions.Add('stopped-narrator')
-    }
-
-    if (Dismiss-UiTestsStartMenu) {
-        $actions.Add('dismissed-start-menu')
     }
 
     $welcomeProcesses = @(

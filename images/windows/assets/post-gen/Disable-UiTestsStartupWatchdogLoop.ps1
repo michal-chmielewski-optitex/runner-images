@@ -1,6 +1,6 @@
 ################################################################################
 ##  File:  Disable-UiTestsStartupWatchdogLoop.ps1 (post-generation)
-##  Desc:  Background loop (5s) suppressing delayed Get Started / Start menu / Narrator popups
+##  Desc:  Background loop (1s) suppressing delayed Get Started / Start menu / Narrator popups
 ################################################################################
 
 if (-not (Test-Path 'C:\imagedata.json')) {
@@ -28,5 +28,5 @@ while ($true) {
         Clear-UiTestsGetStartedRunOnce -RootKey 'HKCU:'
     }
 
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 1
 }

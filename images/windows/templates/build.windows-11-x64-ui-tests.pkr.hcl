@@ -236,6 +236,7 @@ build {
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-NativeImages-UiTests.ps1",
       "${path.root}/../scripts/build/Configure-System.ps1",
+      "${path.root}/../scripts/build/Configure-UiTests-VisualStudio.ps1",
       "${path.root}/../scripts/build/Configure-User.ps1",
       "${path.root}/../scripts/build/Post-Build-Validation.ps1",
       "${path.root}/../scripts/build/Prepare-UiTestsSysprep.ps1"

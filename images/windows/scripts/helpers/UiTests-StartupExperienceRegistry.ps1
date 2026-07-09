@@ -199,7 +199,7 @@ function Register-UiTestsStartupWatchdogTask {
         -Description 'Start background Get Started watchdog loop on interactive UI test agents.' `
         -Force | Out-Null
 
-    Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 5-second watchdog loop)."
+    Write-Host "Registered scheduled task '$taskName' (AtLogOn, starts 1-second watchdog loop)."
 }
 
 function Invoke-UiTestsPowerCfg {

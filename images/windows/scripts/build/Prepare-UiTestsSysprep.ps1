@@ -20,6 +20,9 @@ Invoke-UiTestsSysprepAppxCleanup
 Write-Host 'Re-applying startup experience settings after final updates...'
 Invoke-UiTestsStartupExperienceConfiguration
 
+. (Get-ImageHelperScriptPath -ScriptName 'UiTests-VisualStudioConfiguration.ps1')
+Invoke-UiTestsVisualStudioDefaultUserConfiguration
+
 Write-Host 'Waiting for servicing tasks to complete...'
 $deadline = (Get-Date).AddMinutes(10)
 while ((Get-Process TiWorker -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {

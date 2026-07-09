@@ -14,6 +14,7 @@ Remove-UiTestsInstalledPackagesForAllUsers
 foreach ($scriptName in @(
         'UiTests-ProvisionedPackages.ps1'
         'UiTests-StartupExperienceRegistry.ps1'
+        'UiTests-VisualStudioConfiguration.ps1'
     )) {
     Copy-Item -Path (Get-ImageHelperScriptPath -ScriptName $scriptName) -Destination 'C:\post-generation\' -Force
 }

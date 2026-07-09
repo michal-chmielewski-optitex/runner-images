@@ -1,3 +1,16 @@
+if (Test-Path 'C:\imagedata.json') {
+    $imageData = Get-Content 'C:\imagedata.json' -Raw
+    if ($imageData -match 'windows-11-x64-ui-tests') {
+        Import-Module ImageHelpers -DisableNameChecking -Force
+
+        $vsConfigScript = Join-Path $PSScriptRoot 'UiTests-VisualStudioConfiguration.ps1'
+        if (Test-Path $vsConfigScript) {
+            . $vsConfigScript
+            Set-UiTestsVisualStudioSignInDisabled -RootKey 'HKCU:'
+        }
+    }
+}
+
 $vsInstallRoot = (Get-VisualStudioInstance).InstallationPath
 $devEnvPath = "$vsInstallRoot\Common7\IDE\devenv.exe"
 

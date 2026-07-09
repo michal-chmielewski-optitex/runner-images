@@ -26,6 +26,12 @@ if (Test-Path $packagesScript) {
     Remove-UiTestsNonProvisionedInstalledAppx
 }
 
+$vsConfigScript = Join-Path $PSScriptRoot 'UiTests-VisualStudioConfiguration.ps1'
+if (Test-Path $vsConfigScript) {
+    . $vsConfigScript
+    Set-UiTestsVisualStudioSignInDisabled -RootKey 'HKCU:'
+}
+
 if (Test-Path $registryScript) {
     . $registryScript
     Set-UiTestsPowerSettings
