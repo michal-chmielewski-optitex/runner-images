@@ -7,6 +7,7 @@ if (Test-Path 'C:\imagedata.json') {
         if (Test-Path $vsConfigScript) {
             . $vsConfigScript
             Set-UiTestsVisualStudioSignInDisabled -RootKey 'HKCU:'
+            Invoke-UiTestsVisualStudioWarmup -InteractiveFirstLaunch
         }
     }
 }

@@ -72,13 +72,23 @@ function Set-UiTestsVisualStudioSignInDisabled {
 }
 
 function Invoke-UiTestsVisualStudioWarmup {
+    param(
+        [switch] $InteractiveFirstLaunch
+    )
+
     $vsInstallRoot = (Get-VisualStudioInstance).InstallationPath
     $devEnvPath = Join-Path $vsInstallRoot 'Common7\IDE\devenv.exe'
 
     Set-UiTestsVisualStudioSignInDisabled -RootKey 'HKCU:'
 
-    Write-Host "Warmup Visual Studio first launch for UI tests: $devEnvPath"
-    & $devEnvPath /Command File.Exit | Out-Null
+    if ($InteractiveFirstLaunch) {
+        Write-Host "Interactive Visual Studio first launch warmup: $devEnvPath"
+        & $devEnvPath /Command File.Exit | Out-Null
+    }
+    else {
+        # Headless Packer/WinRM cannot dismiss modal VS first-launch UI; registry + updateconfiguration only.
+        Write-Host "Non-interactive Visual Studio warmup (updateconfiguration only): $devEnvPath"
+    }
 
     cmd.exe /c "`"$devEnvPath`" /updateconfiguration"
     if ($LASTEXITCODE -ne 0) {
