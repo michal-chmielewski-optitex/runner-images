@@ -17,6 +17,33 @@ function Get-UiTestsVisualStudioRegistryInstanceKeys {
         Where-Object { $_.PSIsContainer -and $_.PSChildName -match '^17\.0_' })
 }
 
+function Get-UiTestsVisualStudioInstanceSuffixesFromRegistry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RootKey
+    )
+
+    $vsRoot = "$RootKey\Software\Microsoft\VisualStudio"
+    @(Get-UiTestsVisualStudioRegistryInstanceKeys -RootPath $vsRoot |
+        ForEach-Object { $_.PSChildName.Substring('17.0_'.Length) })
+}
+
+function Add-UiTestsVisualStudioInstanceId {
+    param(
+        [System.Collections.Generic.HashSet[string]] $Ids,
+        [string] $InstanceId
+    )
+
+    if ([string]::IsNullOrWhiteSpace($InstanceId)) {
+        return
+    }
+
+    $normalized = ($InstanceId -replace '^17\.0_', '').Trim()
+    if (-not [string]::IsNullOrWhiteSpace($normalized)) {
+        [void]$Ids.Add($normalized)
+    }
+}
+
 function Get-UiTestsVisualStudioInstanceIds {
     $ids = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 
@@ -25,35 +52,53 @@ function Get-UiTestsVisualStudioInstanceIds {
         Get-ChildItem -Path $instancesRoot -ErrorAction SilentlyContinue |
             Where-Object { $_.PSIsContainer } |
             ForEach-Object {
-            $statePath = Join-Path $_.FullName 'state.json'
-            if (-not (Test-Path $statePath)) {
-                return
-            }
+                $instanceId = $null
+                foreach ($fileName in @('state.json', 'catalog.json')) {
+                    $jsonPath = Join-Path $_.FullName $fileName
+                    if (-not (Test-Path $jsonPath)) {
+                        continue
+                    }
 
-            try {
-                $state = Get-Content -Path $statePath -Raw | ConvertFrom-Json
-                if ($state.instanceId) {
-                    [void]$ids.Add([string]$state.instanceId)
+                    try {
+                        $json = Get-Content -Path $jsonPath -Raw | ConvertFrom-Json
+                        foreach ($propertyName in @('instanceId', 'installationInstanceId')) {
+                            if ($json.$propertyName) {
+                                $instanceId = [string]$json.$propertyName
+                                break
+                            }
+                        }
+                    }
+                    catch {
+                        Write-Verbose "Could not read Visual Studio $fileName from $($_.FullName): $($_.Exception.Message)"
+                    }
+
+                    if ($instanceId) {
+                        break
+                    }
                 }
+
+                if ([string]::IsNullOrWhiteSpace($instanceId)) {
+                    $instanceId = $_.Name
+                }
+
+                Add-UiTestsVisualStudioInstanceId -Ids $ids -InstanceId $instanceId
             }
-            catch {
-                Write-Verbose "Could not read Visual Studio state.json from $($_.FullName): $($_.Exception.Message)"
-            }
-        }
     }
 
-    foreach ($rootKey in @('HKCU:\Software\Microsoft\VisualStudio', 'HKLM:\DEFAULT\Software\Microsoft\VisualStudio')) {
-        if (-not (Test-Path $rootKey)) {
-            continue
+    try {
+        Import-Module VSSetup -ErrorAction Stop
+        Get-VSSetupInstance -Prerelease -All -ErrorAction SilentlyContinue | ForEach-Object {
+            Add-UiTestsVisualStudioInstanceId -Ids $ids -InstanceId $_.InstanceId
         }
+    }
+    catch {
+        Write-Verbose "Could not enumerate Visual Studio instances via VSSetup: $($_.Exception.Message)"
+    }
 
-        Get-UiTestsVisualStudioRegistryInstanceKeys -RootPath $rootKey |
-            ForEach-Object {
-                $suffix = $_.PSChildName.Substring('17.0_'.Length)
-                if (-not [string]::IsNullOrWhiteSpace($suffix)) {
-                    [void]$ids.Add($suffix)
-                }
-            }
+    foreach ($rootKey in @('HKCU:', 'HKLM:\DEFAULT')) {
+        foreach ($suffix in @(Get-UiTestsVisualStudioInstanceSuffixesFromRegistry -RootKey $rootKey)) {
+            Add-UiTestsVisualStudioInstanceId -Ids $ids -InstanceId $suffix
+        }
     }
 
     @($ids)
@@ -108,6 +153,8 @@ function Invoke-UiTestsVisualStudioWarmup {
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to warmup 'devenv.exe /updateconfiguration' for UI tests"
     }
+
+    Set-UiTestsVisualStudioSignInDisabled -RootKey 'HKCU:'
 }
 
 function Invoke-UiTestsVisualStudioDefaultUserConfiguration {
