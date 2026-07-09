@@ -37,6 +37,13 @@ else {
 
 Write-Host 'Copying Visual Studio AppData to the default user profile...'
 Copy-Item ${env:USERPROFILE}\AppData\Local\Microsoft\VisualStudio -Destination c:\users\default\AppData\Local\Microsoft\VisualStudio -Recurse -ErrorAction SilentlyContinue
+Write-Host 'Visual Studio AppData copy completed.'
+
+if ($isUiTestsBuild) {
+    Write-Host 'Skipping full Visual Studio registry copy for UI test image (Configure-UiTests-VisualStudio.ps1 already seeded DisableSignIn in the default profile).'
+    Write-Host 'Configure-User.ps1 - completed'
+    return
+}
 
 if (Test-Path 'HKLM:\DEFAULT') {
     Write-Warning 'HKLM\DEFAULT hive is already loaded; dismounting before remount.'
