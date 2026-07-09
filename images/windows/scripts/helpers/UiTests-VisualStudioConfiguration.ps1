@@ -3,12 +3,28 @@
 ##  Desc:  Suppress Visual Studio first-launch sign-in for UI test agents
 ################################################################################
 
+function Get-UiTestsVisualStudioRegistryInstanceKeys {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RootPath
+    )
+
+    if (-not (Test-Path $RootPath)) {
+        return @()
+    }
+
+    @(Get-ChildItem -Path $RootPath -ErrorAction SilentlyContinue |
+        Where-Object { $_.PSIsContainer -and $_.PSChildName -match '^17\.0_' })
+}
+
 function Get-UiTestsVisualStudioInstanceIds {
     $ids = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 
     $instancesRoot = 'C:\ProgramData\Microsoft\VisualStudio\Packages\_Instances'
     if (Test-Path $instancesRoot) {
-        Get-ChildItem -Path $instancesRoot -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        Get-ChildItem -Path $instancesRoot -ErrorAction SilentlyContinue |
+            Where-Object { $_.PSIsContainer } |
+            ForEach-Object {
             $statePath = Join-Path $_.FullName 'state.json'
             if (-not (Test-Path $statePath)) {
                 return
@@ -31,10 +47,9 @@ function Get-UiTestsVisualStudioInstanceIds {
             continue
         }
 
-        Get-ChildItem -Path $rootKey -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '^17\.0_' } |
+        Get-UiTestsVisualStudioRegistryInstanceKeys -RootPath $rootKey |
             ForEach-Object {
-                $suffix = $_.Name.Substring('17.0_'.Length)
+                $suffix = $_.PSChildName.Substring('17.0_'.Length)
                 if (-not [string]::IsNullOrWhiteSpace($suffix)) {
                     [void]$ids.Add($suffix)
                 }
@@ -61,10 +76,9 @@ function Set-UiTestsVisualStudioSignInDisabled {
 
     $vsRoot = "$RootKey\Software\Microsoft\VisualStudio"
     if (Test-Path $vsRoot) {
-        Get-ChildItem -Path $vsRoot -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '^17\.0_' } |
+        Get-UiTestsVisualStudioRegistryInstanceKeys -RootPath $vsRoot |
             ForEach-Object {
-                $generalPath = Join-Path $_.FullName 'General'
+                $generalPath = "$RootKey\Software\Microsoft\VisualStudio\$($_.PSChildName)\General"
                 Set-RegistryKeyDword -KeyPath $generalPath -Name DisableSignIn -Value 1 -UseRegExe:$useRegExe
                 Set-RegistryKeyDword -KeyPath $generalPath -Name EnvironmentOptIn -Value 0 -UseRegExe:$useRegExe
             }
