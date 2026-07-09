@@ -231,7 +231,7 @@ build {
   }
 
   provisioner "powershell" {
-    environment_vars = ["INSTALL_USER=${var.install_user}", "UI_TESTS_INIT_D_DRIVE=1", "TEMP_DIR=C:\\temp"]
+    environment_vars = ["INSTALL_USER=${var.install_user}", "UI_TESTS_INIT_D_DRIVE=1", "IMAGE_UI_TESTS_BUILD=true", "TEMP_DIR=C:\\temp"]
     scripts          = [
       "${path.root}/../scripts/build/Import-ImageHelpers.ps1",
       "${path.root}/../scripts/build/Install-NativeImages-UiTests.ps1",

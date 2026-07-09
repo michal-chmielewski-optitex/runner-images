@@ -8,20 +8,46 @@
 #       https://github.com/actions/runner-images/issues/5301#issuecomment-1648292990
 #
 
-Write-Host "Warmup 'devenv.exe /updateconfiguration'"
-$vsInstallRoot = (Get-VisualStudioInstance).InstallationPath
-cmd.exe /c "`"$vsInstallRoot\Common7\IDE\devenv.exe`" /updateconfiguration"
-if ($LASTEXITCODE -ne 0) {
-    throw "Failed to warmup 'devenv.exe /updateconfiguration'"
+function Test-IsUiTestsImageBuild {
+    if ($env:IMAGE_UI_TESTS_BUILD -eq 'true') {
+        return $true
+    }
+
+    if (Test-Path 'C:\imagedata.json') {
+        $imageData = Get-Content 'C:\imagedata.json' -Raw
+        return $imageData -match 'windows-11-x64-ui-tests'
+    }
+
+    return $false
 }
 
-# we are fine if some file is locked and cannot be copied
+$isUiTestsBuild = Test-IsUiTestsImageBuild
+
+if ($isUiTestsBuild) {
+    Write-Host 'Skipping duplicate devenv /updateconfiguration (Configure-UiTests-VisualStudio.ps1 already ran it).'
+}
+else {
+    Write-Host "Warmup 'devenv.exe /updateconfiguration'"
+    $vsInstallRoot = (Get-VisualStudioInstance).InstallationPath
+    cmd.exe /c "`"$vsInstallRoot\Common7\IDE\devenv.exe`" /updateconfiguration"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to warmup 'devenv.exe /updateconfiguration'"
+    }
+}
+
+Write-Host 'Copying Visual Studio AppData to the default user profile...'
 Copy-Item ${env:USERPROFILE}\AppData\Local\Microsoft\VisualStudio -Destination c:\users\default\AppData\Local\Microsoft\VisualStudio -Recurse -ErrorAction SilentlyContinue
+
+if (Test-Path 'HKLM:\DEFAULT') {
+    Write-Warning 'HKLM\DEFAULT hive is already loaded; dismounting before remount.'
+    Dismount-RegistryHive 'HKLM\DEFAULT'
+}
 
 Mount-RegistryHive `
     -FileName "C:\Users\Default\NTUSER.DAT" `
     -SubKey "HKLM\DEFAULT"
 
+Write-Host 'Copying HKCU\Software\Microsoft\VisualStudio to HKLM\DEFAULT...'
 reg.exe copy HKCU\Software\Microsoft\VisualStudio HKLM\DEFAULT\Software\Microsoft\VisualStudio /s
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to copy HKCU\Software\Microsoft\VisualStudio to HKLM\DEFAULT\Software\Microsoft\VisualStudio"
