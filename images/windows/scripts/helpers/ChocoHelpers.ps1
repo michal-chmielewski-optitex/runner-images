@@ -1,3 +1,88 @@
+function Add-MachinePathEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Directory
+    )
+
+    if (-not (Test-Path $Directory)) {
+        return
+    }
+
+    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $segments = @($machinePath -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($segments -contains $Directory) {
+        return
+    }
+
+    [Environment]::SetEnvironmentVariable('Path', "$Directory;$machinePath", 'Machine')
+    $env:Path = "$Directory;$env:Path"
+}
+
+function Test-ChocoPackageInstalled {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $PackageName
+    )
+
+    return [bool](choco list --localonly $PackageName --exact --all --limitoutput)
+}
+
+function Install-ChocoPackageOfflineFallback {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $PackageName
+    )
+
+    Write-Warning "Chocolatey feed unavailable; installing $PackageName from an alternate source."
+
+    switch ($PackageName) {
+        '7zip.install' {
+            $sevenZipDir = Join-Path $env:ProgramFiles '7-Zip'
+            if (-not (Test-Path (Join-Path $sevenZipDir '7z.exe'))) {
+                Install-Binary -Url 'https://7-zip.org/a/7z2409-x64.exe' -Type EXE -InstallArgs @('/S')
+            }
+
+            Add-MachinePathEntry -Directory $sevenZipDir
+            return (Test-Path (Join-Path $sevenZipDir '7z.exe'))
+        }
+        'NuGet.CommandLine' {
+            $toolsDir = 'C:\Tools\NuGet'
+            $nugetExe = Join-Path $toolsDir 'nuget.exe'
+            if (-not (Test-Path $nugetExe)) {
+                New-Item -ItemType Directory -Path $toolsDir -Force | Out-Null
+                Invoke-DownloadWithRetry -Url 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -Path $nugetExe
+            }
+
+            Add-MachinePathEntry -Directory $toolsDir
+            return (Test-Path $nugetExe)
+        }
+        'vswhere' {
+            foreach ($candidate in @(
+                    (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer')
+                    (Join-Path $env:ProgramFiles 'Microsoft Visual Studio\Installer')
+                )) {
+                if (Test-Path (Join-Path $candidate 'vswhere.exe')) {
+                    Add-MachinePathEntry -Directory $candidate
+                    return $true
+                }
+            }
+
+            return $false
+        }
+        'PSWindowsUpdate' {
+            if (Get-Module -ListAvailable -Name PSWindowsUpdate) {
+                return $true
+            }
+
+            Install-Module -Name PSWindowsUpdate -Force -Scope AllUsers -Repository PSGallery -AllowClobber
+            return [bool](Get-Module -ListAvailable -Name PSWindowsUpdate)
+        }
+        default {
+            return $false
+        }
+    }
+}
+
 function Install-ChocoPackage {
     <#
     .SYNOPSIS
@@ -29,7 +114,7 @@ function Install-ChocoPackage {
         [string] $PackageName,
         [string[]] $ArgumentList,
         [string] $Version,
-        [int] $RetryCount = 5
+        [int] $RetryCount = 8
     )
 
     process {
@@ -41,18 +126,25 @@ function Install-ChocoPackage {
             } else {
                 choco install $packageName -y @ArgumentList --no-progress --require-checksums
             }
-            $pkg = choco list --localonly $packageName --exact --all --limitoutput
-            if ($pkg) {
+            if (Test-ChocoPackageInstalled -PackageName $packageName) {
+                $pkg = choco list --localonly $packageName --exact --all --limitoutput
                 Write-Host "Package installed: $pkg"
                 break
-            } else {
-                $count++
-                if ($count -ge $retryCount) {
-                    Write-Host "Could not install $packageName after $count attempts"
-                    exit 1
-                }
-                Start-Sleep -Seconds 30
             }
+
+            if ($count -ge $retryCount) {
+                if ($env:IMAGE_UI_TESTS_BUILD -eq 'true' -and (Install-ChocoPackageOfflineFallback -PackageName $packageName)) {
+                    Write-Host "Installed $packageName via offline fallback."
+                    break
+                }
+
+                throw "Could not install $packageName after $count Chocolatey attempts."
+            }
+
+            $sleepSeconds = [Math]::Min(60 * $count, 180)
+            Write-Host "Chocolatey install for $packageName failed; retrying in ${sleepSeconds}s..."
+            Start-Sleep -Seconds $sleepSeconds
+            $count++
         }
     }
 }
